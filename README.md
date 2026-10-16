@@ -60,12 +60,6 @@ Toutes les exécutions partent du fichier `project_settings` :
   plusieurs codes en une seule technologie. Environ 3 technologies sont conseillées :
   chacune est une passe complète de calcul des métriques.
 
-À partir de ces paramètres, `project_settings` calcule (sans qu'on ait à les
-modifier) `OUTPUT_ROOT` (`SRDV (c,s)`, `SRDQ (c,s,t)`…), `RUN_DIR` (le même nom,
-suivi de `/<TECH>` en mode `(c,s,t)`), `SRC_DIR` / `SRC_DIRS` (où le programme
-principal écrit) et `RESULTS_DIR` (`runs/<RUN_DIR>/`, où écrit la suite de la
-chaîne).
-
 ## 3. Le programme principal : `know_calc_loop.ipynb`
 
 ### 3.1 Ce qu'il fait
@@ -97,12 +91,12 @@ Les métriques calculées dépendent de la base (`ALL_METRICS` dans `run()`) :
 | Patents_Citation | `rd_dir_cit` | citations de brevets |
 
 Sens de chaque métrique :
-- `rd_dir_*` : R&D directe (premier niveau, pas de propagation dans la chaîne
+- `rd_dir` : R&D directe (premier niveau, pas de propagation dans la chaîne
   de production).
-- `rd_embod_CI`/`rd_embod_CFC` : R&D totale incorporée, `rd_dir_*` propagée via
+- `rd_embod` : R&D totale incorporée, `rd_dir` propagée via
   l'inverse de Leontief (tous les fournisseurs amont, domestiques et
   étrangers).
-- `rd_imp_CI` : comme `rd_embod_CI`, restreint aux flux transfrontaliers (les
+- `rd_imp` : comme `rd_embod`, restreint aux flux transfrontaliers (les
   flux domestiques, même région, sont mis à zéro).
 
 ### 3.2 Comment le lancer
@@ -153,8 +147,6 @@ Pour les fichiers `(c,s,t)` :
 - le code de secteur du fichier (`S20`, `261`…) est converti en `nace_code` par le
   dictionnaire `TECH_SECTOR_MAP` de la cellule de configuration du programme
   principal : à compléter si de nouveaux codes de secteur apparaissent ;
-- le code `RW` (reste du monde) est écarté, faute de ligne correspondante dans les
-  mappings `agg_rd_to_{BASE}.xlsx` ;
 - le stock est calculé sur les années du fichier (2000–2021), un flux manquant
   compte pour 0 ;
 - les volumes `(c,s,t)` de quelques pays (BR, IN, RU, RO, MX, BG, EE, HU, LV…)
@@ -197,9 +189,9 @@ la même organisation qu'en `(c,s)` :
 
 ### 4.1 Organisation
 
-![Schéma des fichiers de mapping](mapping/schema_mapping.svg)
+![Schéma des fichiers de mapping](<img width="691" height="375" alt="Capture d&#39;écran 2026-10-16 171008" src="https://github.com/user-attachments/assets/dd6a542a-b098-47d7-bc9f-52b4c89a472a" />)
 
-*Lecture du schéma (fichier source : [`mapping/schema_mapping.svg`](mapping/schema_mapping.svg)) : la base MRIO (à gauche) et le fichier de R&D (à droite) sont chacun ramenés par un premier mapping à une même **agrégation commune**, la plus fine possible, au milieu. C'est à ce niveau que les deux côtés doivent avoir exactement les mêmes cibles (encadré rouge), et c'est ce niveau qui fixe la résolution des résultats du programme principal. En dessous, une **couche d'agrégation supplémentaire** est facultative : elle consiste à regrouper davantage avec un fichier de mapping en plus (`map_agg_{BASE}.xlsx`). Dans ce projet, elle sert à ramener les 7 bases à une même nomenclature de 34 secteurs pour pouvoir les comparer.*
+La base MRIO (à gauche) et le fichier de R&D (à droite) sont chacun ramenés par un premier mapping à une même **agrégation commune**, la plus fine possible, au milieu. C'est à ce niveau que les deux côtés doivent avoir exactement les mêmes cibles (encadré rouge), et c'est ce niveau qui fixe la résolution des résultats du programme principal. En dessous, une **couche d'agrégation supplémentaire** est facultative : elle consiste à regrouper davantage avec un fichier de mapping en plus (`map_agg_{BASE}.xlsx`). Dans ce projet, elle sert à ramener les 7 bases à une même nomenclature de 34 secteurs pour pouvoir les comparer.*
 
 Chaque base a besoin de **deux** fichiers de mapping obligatoires, plus un troisième
 facultatif (la couche d'agrégation supplémentaire), rangés chacun dans son sous-dossier :

@@ -1,4 +1,4 @@
-# ENTICE 3.4
+# ENTICE T3.4
 
 Ce dépôt calcule le contenu en R&D (directe, incorporée, importée) porté par les
 flux d'échanges internationaux, à partir de plusieurs bases MRIO (EXIOBASE,
@@ -147,6 +147,8 @@ Pour les fichiers `(c,s,t)` :
 - le code de secteur du fichier (`S20`, `261`…) est converti en `nace_code` par le
   dictionnaire `TECH_SECTOR_MAP` de la cellule de configuration du programme
   principal : à compléter si de nouveaux codes de secteur apparaissent ;
+- le code `RW` (reste du monde) est écarté, faute de ligne correspondante dans les
+  mappings `agg_rd_to_{BASE}.xlsx` ;
 - le stock est calculé sur les années du fichier (2000–2021), un flux manquant
   compte pour 0 ;
 - les volumes `(c,s,t)` de quelques pays (BR, IN, RU, RO, MX, BG, EE, HU, LV…)
@@ -189,9 +191,9 @@ la même organisation qu'en `(c,s)` :
 
 ### 4.1 Organisation
 
-![Schéma des fichiers de mapping](<img width="691" height="375" alt="Capture d&#39;écran 2026-10-16 171008" src="https://github.com/user-attachments/assets/dd6a542a-b098-47d7-bc9f-52b4c89a472a" />)
+![Schéma des fichiers de mapping](mapping/schema_mapping.svg)
 
-La base MRIO (à gauche) et le fichier de R&D (à droite) sont chacun ramenés par un premier mapping à une même **agrégation commune**, la plus fine possible, au milieu. C'est à ce niveau que les deux côtés doivent avoir exactement les mêmes cibles (encadré rouge), et c'est ce niveau qui fixe la résolution des résultats du programme principal. En dessous, une **couche d'agrégation supplémentaire** est facultative : elle consiste à regrouper davantage avec un fichier de mapping en plus (`map_agg_{BASE}.xlsx`). Dans ce projet, elle sert à ramener les 7 bases à une même nomenclature de 34 secteurs pour pouvoir les comparer.*
+*Lecture du schéma (fichier source : [`mapping/schema_mapping.svg`](mapping/schema_mapping.svg)) : la base MRIO (à gauche) et le fichier de R&D (à droite) sont chacun ramenés par un premier mapping à une même **agrégation commune**, la plus fine possible, au milieu. C'est à ce niveau que les deux côtés doivent avoir exactement les mêmes cibles (encadré rouge), et c'est ce niveau qui fixe la résolution des résultats du programme principal. En dessous, une **couche d'agrégation supplémentaire** est facultative : elle consiste à regrouper davantage avec un fichier de mapping en plus (`map_agg_{BASE}.xlsx`). Dans ce projet, elle sert à ramener les 7 bases à une même nomenclature de 34 secteurs pour pouvoir les comparer.*
 
 Chaque base a besoin de **deux** fichiers de mapping obligatoires, plus un troisième
 facultatif (la couche d'agrégation supplémentaire), rangés chacun dans son sous-dossier :
@@ -234,10 +236,6 @@ MAP_RD_FILES = {         # base -> fichier R&D -> nomenclature de travail (dans 
 }
 ```
 
-Le fichier `agg_EXIOBASE_3.8.22_to_rd.xlsx` porte la version d'EXIOBASE et
-`agg_CFC_3.8.2_to_rd.xlsx` celle de CFC : si un fichier est renommé, mettre à jour
-`AGG_FILES` en conséquence.
-
 ### 4.2 La règle à respecter
 
 Pour une base donnée, l'ensemble des **secteurs** cibles de
@@ -269,31 +267,6 @@ nomenclature :
    nomenclature de travail, indiquer le secteur commun correspondant.
 5. **Enregistrer la base** dans `AGG_FILES` et `MAP_RD_FILES` du programme
    principal si le nom du fichier a changé ou si c'est une nouvelle base.
-6. **Vérifier la cohérence** avec ce petit bout de code, à lancer depuis la racine
-   du projet (mêmes cibles côté base et côté R&D, et toutes présentes dans
-   `map_agg`) :
-
-```python
-import pandas as pd
-base_file = "mapping/agg_base_to_rd/agg_EXIOBASE_3.8.22_to_rd.xlsx"
-rd_file = "mapping/agg_rd_to_base/agg_rd_to_EXIOBASE.xlsx"
-map_agg_file = "mapping/final_aggregation/map_agg_EXIOBASE.xlsx"
-
-for sheet in ["Sector", "Region"]:
-    cibles_base = set(pd.read_excel(base_file, sheet_name=sheet)["Aggregation"].dropna().astype(str))
-    cibles_rd = set(pd.read_excel(rd_file, sheet_name=sheet, dtype=str)["aggregation"].dropna())
-    print(sheet, "| seulement côté base :", sorted(cibles_base - cibles_rd),
-          "| seulement côté R&D :", sorted(cibles_rd - cibles_base))
-
-map_agg = set(pd.read_excel(map_agg_file, sheet_name="Sector", dtype=str)["Sector"].dropna())
-cibles_rd = set(pd.read_excel(rd_file, sheet_name="Sector", dtype=str)["aggregation"].dropna())
-print("cibles absentes de map_agg :", sorted(cibles_rd - map_agg))
-```
-
-7. **Relancer** le programme principal (les fichiers de résultats sont
-   recalculés à la résolution des nouveaux mappings), puis le script d'agrégation.
-   Supprimer d'abord les anciens fichiers `_agg` : le script ne retouche pas un
-   `_agg` déjà existant.
 
 Les trois fichiers ne répondent pas à la même logique d'agrégation :
 
@@ -339,12 +312,6 @@ simple addition, sans biais :
 (e_i · Z_i) + (e_j · Z_j) = e · (Z_i + Z_j)     si e_i = e_j = e
 ```
 
-C'est différent de fusionner les `Z` **avant** de calculer `e` (ce qui avait
-produit l'écart observé initialement, ex. BE `C20_C21` = 86,75 au lieu de
-23,85 attendu) : dans ce cas les intensités `e_i` et `e_j` diffèrent et un
-terme croisé apparaît. Le script n'introduit donc pas ce biais : il ne fait
-qu'agréger un résultat déjà correct.
-
 ### Ce qu'il fait
 
 Pour la `BASE` de `project_settings` (liste `BASES` en tête du script pour en
@@ -364,16 +331,7 @@ suffixe `_agg` (ex. `rd_dir_CI_EXIOBASE_2015.csv` →
 un fichier déjà traité ne retouche pas son `_agg` existant, et les fichiers
 d'origine ne sont jamais modifiés.
 
-Un secteur présent dans un fichier de sortie mais absent de son
-`map_agg_{base}.xlsx` est conservé tel quel (identité) et signalé par un
-avertissement dans la console, plutôt que de faire échouer le script — l'état
-du mapping reste à la charge de l'utilisateur.
-
 ### Comment le lancer
-
-```bash
-python code/aggregate_to_common_mapping.py
-```
 
 À lancer après le programme principal, une fois que le dossier du run contient
 les fichiers à agréger pour la base voulue.
@@ -387,15 +345,6 @@ les fichiers à agréger pour la base voulue.
 | 0 (une fois) | `code/création_panel_estimation/prépa_va_STAN.ipynb` | `Panels_intermediaires/panel_va_STAN.csv`, `panel_cit1.csv` et `intensite_propre.csv` (intensité de R&D = RDV / production STAN, commune à toutes les bases et technologies) |
 | 1 | `code/know_calc_loop.ipynb` | métriques par base, année et (le cas échéant) technologie (section 3) |
 | 2 | `code/aggregate_to_common_mapping.py` | fichiers `_agg` à la nomenclature commune (section 5) |
-| 3 | `code/création_panel_estimation/calc_blocs.ipynb` | `runs/<run>/panel_estimation/panel_estimation_{BASE}.csv` |
-| 4 | `code/création_panel_estimation/création_panel_F.ipynb` | `runs/<run>/panels/` : panel complet et panels « faible » / « forte » intensité |
-| 5 | `code/est_all_bases.ipynb` | `runs/<run>/tableaux/{BASE}/tab_{BASE}_{métrique}[_faible/_forte].xlsx` |
-| 6 | `code/graph_final_results.ipynb`, `code/graphs_output_general.ipynb` | graphiques dans `runs/<run>/graphs/` et `graphs_output/` |
-
-`<run>` est `RUN_DIR` : par exemple `SRDV (c,s)` ou `SRDV (c,s,t)/TJ11`. Les étapes
-3 à 6 travaillent sur la technologie `TECH` de `project_settings` ; pour en
-analyser une autre, changer `TECH` et relancer les étapes 3 à 6 (les étapes 1 et 2
-ont déjà traité toutes les technologies de `TECHS`).
 
 ### 6.1 Graphiques sur les matrices de sortie : `graphs_output_general.ipynb`
 
@@ -426,10 +375,3 @@ sources = [("EXIOBASE", "rd_dir_CI", 2010, run_id("value", "(c,s)")),
 
 - **Nomenclature :** `USE_AGG = False` (par défaut) lit les matrices à la résolution native de chaque base ; `USE_AGG = True` lit les fichiers `_agg` (nomenclature commune).
 - **Sorties :** les figures vont dans `runs/<run>/graphs_output/` pour un seul run, et dans `runs/comparison/graphs_output/` quand plusieurs runs sont comparés.
-
-## 7. Résultats
-
-Les résultats du programme principal sont dans `<OUTPUT_ROOT>/` (section 3.4).
-Ceux de la suite de la chaîne (panels, tableaux d'estimation, graphiques) sont
-dans `runs/<run>/`, un dossier par combinaison unité × dimension × technologie,
-si bien que les runs ne s'écrasent jamais entre eux.

@@ -1,0 +1,18 @@
+# Raw and generated data: far too large for GitHub (100 MB per file limit) and rebuilt by the code
+data_raw/
+SRDV (c,s)/
+SRDQ (c,s)/
+SRDV (c,s,t)/
+SRDQ (c,s,t)/
+runs/
+panels/
+graphs_output_loop/
+code/*/DATA/
+code/*/Panels_intermediaires/
+code/*/Panels_estimation/
+
+# Python / IDE
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+.idea/

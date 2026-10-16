@@ -59,11 +59,6 @@ Toutes les exécutions partent du fichier `project_settings` :
   codes qui commencent par TG), ou un dictionnaire `{nom: [codes]}` pour regrouper
   plusieurs codes en une seule technologie. Environ 3 technologies sont conseillées :
   chacune est une passe complète de calcul des métriques.
-- `TECH` : la technologie analysée par la suite de la chaîne (calc_blocs, panels,
-  régressions, graphiques). Un nom de `TECHS`. Une seule à la fois : la changer et
-  relancer pour en analyser une autre.
-- `METRIC_WANTED`, `MODELES`, `METRIC_SPE` : utilisés par les notebooks
-  d'estimation et de graphiques, pas par le programme principal.
 
 À partir de ces paramètres, `project_settings` calcule (sans qu'on ait à les
 modifier) `OUTPUT_ROOT` (`SRDV (c,s)`, `SRDQ (c,s,t)`…), `RUN_DIR` (le même nom,

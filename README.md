@@ -52,7 +52,7 @@ Toutes les exécutions partent du fichier `project_settings` :
   dépendent des données brutes, voir 3.3). En mode `(c,s,t)`, la liste est
   automatiquement limitée à 2000–2021.
 - `RD_UNIT` : `"value"` (fichiers `RDV`, euros courants, stocks notés `SRDV`) ou
-  `"volume"` (fichiers `RDQ`, euros constants 2020, stocks notés `SRDQ`).
+  `"volume"` (fichiers `RDQ`, euros constants 2010, stocks notés `SRDQ`).
 - `DIMENSION` : `"(c,s)"` (sans technologie) ou `"(c,s,t)"` (avec technologie).
 - `TECHS` : technologies calculées quand `DIMENSION = "(c,s,t)"` (ignoré sinon).
   Une liste de codes ou de motifs (`["TJ11", "TJ07", "TJ01"]` ; `"TG*"` = tous les
@@ -140,14 +140,17 @@ les autres programmes, redémarrer le noyau, et ne traiter qu'une base à la foi
 
 | `RD_UNIT` | `DIMENSION` | Fichier | Format |
 |---|---|---|---|
-| `volume` | `(c,s)` | `RDQ (c,s).csv` | colonnes `year;country_code;nace_code;rd_value_volume_M€`, séparateur `;`, 1995–2022, euros constants 2020 |
+| `volume` | `(c,s)` | `RDQ (c,s).csv` | colonnes `year;country_code;nace_code;rd_value_volume_M€`, séparateur `;`, 2000–2023, euros constants 2010 (même base pour tous les pays) |
 | `value` | `(c,s)` | `RDV (c,s).csv` | colonnes `year,country_code,nace_code,rd_value_M€`, séparateur `,`, 1995–2022, euros courants |
 | `volume` | `(c,s,t)` | `RDQ (c,s,t).csv` | format large : colonne `VAR` = `RDQ_<pays>_<secteur>_<technologie>_<groupe>`, une colonne par année `2000Y1` … `2021Y1` |
 | `value` | `(c,s,t)` | `RDV (c,s,t).csv` | idem avec `RDV_` |
 
-Les volumes (`RDQ`) sont tous recalés sur 2020 (script
-`code/conversion_RD.py`). Les valeurs (`RDV`) sont en euros courants et n'ont
-pas d'année de référence.
+Ces fichiers sont construits par `code/Creation_RD_files.py` à partir des fichiers
+BERD de Zenodo (4 fichiers à la racine : valeur et volume, 55 ou 25 secteurs). Les
+volumes (`RDQ`) y sont déjà en prix constants 2010, avec la même base pour tous les
+pays : aucun recalage n'est nécessaire. Les valeurs (`RDV`) sont en euros courants et
+n'ont pas d'année de référence. Ils couvrent 2000–2023 : adapter `Y0` / `YN` du
+programme principal.
 
 Pour les fichiers `(c,s,t)` :
 - le code de technologie est le 4ᵉ bloc de `VAR` ; plusieurs lignes (le « groupe »,
@@ -395,7 +398,7 @@ les fichiers à agréger pour la base voulue.
 
 | Étape | Programme | Produit |
 |---|---|---|
-| 0 (une fois) | `code/conversion_RD.py` | fichiers `RDQ` recalés sur 2020 (les `RDV` ne changent pas), écrits avec le suffixe `_rebased` : les renommer sans suffixe pour les utiliser |
+| 0 (une fois) | `code/Creation_RD_files.py` | `RDV (c,s)_new.csv` et `RDQ (c,s)_new.csv` à partir des fichiers BERD (valeur courante et volume en prix 2010) : les renommer sans le suffixe `_new` pour les utiliser |
 | 0 (une fois) | `code/conversion_STAN_euro.py` | fichiers STAN convertis en euros (taux 2020) et volumes recalés sur 2020, écrits avec le suffixe `_euro` ; `prépa_va_STAN` lit les fichiers `STAN_DATA_TFP_essential (euro courant).csv` et `DATA_STAN (euro courant).csv` du dossier `code/création_panel_estimation/DATA/` : y placer la version voulue |
 | 0 (une fois) | `code/création_panel_estimation/prépa_va_STAN.ipynb` | `Panels_intermediaires/panel_va_STAN.csv`, `panel_cit1.csv` et `intensite_propre.csv` (intensité de R&D = RDV / production STAN, commune à toutes les bases et technologies) |
 | 1 | `code/know_calc_loop.ipynb` | métriques par base, année et (le cas échéant) technologie (section 3) |

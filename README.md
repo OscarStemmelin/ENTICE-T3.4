@@ -1,4 +1,4 @@
-# Pipeline R&D spillovers via bases MRIO
+# ENTICE T3.4
 
 Ce dépôt calcule le contenu en R&D (directe, incorporée, importée) porté par les
 flux d'échanges internationaux, à partir de plusieurs bases MRIO (EXIOBASE,
@@ -52,24 +52,13 @@ Toutes les exécutions partent du fichier `project_settings` :
   dépendent des données brutes, voir 3.3). En mode `(c,s,t)`, la liste est
   automatiquement limitée à 2000–2021.
 - `RD_UNIT` : `"value"` (fichiers `RDV`, euros courants, stocks notés `SRDV`) ou
-  `"volume"` (fichiers `RDQ`, euros constants 2010, stocks notés `SRDQ`).
+  `"volume"` (fichiers `RDQ`, euros constants 2020, stocks notés `SRDQ`).
 - `DIMENSION` : `"(c,s)"` (sans technologie) ou `"(c,s,t)"` (avec technologie).
 - `TECHS` : technologies calculées quand `DIMENSION = "(c,s,t)"` (ignoré sinon).
   Une liste de codes ou de motifs (`["TJ11", "TJ07", "TJ01"]` ; `"TG*"` = tous les
   codes qui commencent par TG), ou un dictionnaire `{nom: [codes]}` pour regrouper
   plusieurs codes en une seule technologie. Environ 3 technologies sont conseillées :
   chacune est une passe complète de calcul des métriques.
-- `TECH` : la technologie analysée par la suite de la chaîne (calc_blocs, panels,
-  régressions, graphiques). Un nom de `TECHS`. Une seule à la fois : la changer et
-  relancer pour en analyser une autre.
-- `METRIC_WANTED`, `MODELES`, `METRIC_SPE` : utilisés par les notebooks
-  d'estimation et de graphiques, pas par le programme principal.
-
-À partir de ces paramètres, `project_settings` calcule (sans qu'on ait à les
-modifier) `OUTPUT_ROOT` (`SRDV (c,s)`, `SRDQ (c,s,t)`…), `RUN_DIR` (le même nom,
-suivi de `/<TECH>` en mode `(c,s,t)`), `SRC_DIR` / `SRC_DIRS` (où le programme
-principal écrit) et `RESULTS_DIR` (`runs/<RUN_DIR>/`, où écrit la suite de la
-chaîne).
 
 ## 3. Le programme principal : `know_calc_loop.ipynb`
 
@@ -102,12 +91,12 @@ Les métriques calculées dépendent de la base (`ALL_METRICS` dans `run()`) :
 | Patents_Citation | `rd_dir_cit` | citations de brevets |
 
 Sens de chaque métrique :
-- `rd_dir_*` : R&D directe (premier niveau, pas de propagation dans la chaîne
+- `rd_dir` : R&D directe (premier niveau, pas de propagation dans la chaîne
   de production).
-- `rd_embod_CI`/`rd_embod_CFC` : R&D totale incorporée, `rd_dir_*` propagée via
+- `rd_embod` : R&D totale incorporée, `rd_dir` propagée via
   l'inverse de Leontief (tous les fournisseurs amont, domestiques et
   étrangers).
-- `rd_imp_CI` : comme `rd_embod_CI`, restreint aux flux transfrontaliers (les
+- `rd_imp` : comme `rd_embod`, restreint aux flux transfrontaliers (les
   flux domestiques, même région, sont mis à zéro).
 
 ### 3.2 Comment le lancer
@@ -140,17 +129,14 @@ les autres programmes, redémarrer le noyau, et ne traiter qu'une base à la foi
 
 | `RD_UNIT` | `DIMENSION` | Fichier | Format |
 |---|---|---|---|
-| `volume` | `(c,s)` | `RDQ (c,s).csv` | colonnes `year;country_code;nace_code;rd_value_volume_M€`, séparateur `;`, 2000–2023, euros constants 2010 (même base pour tous les pays) |
+| `volume` | `(c,s)` | `RDQ (c,s).csv` | colonnes `year;country_code;nace_code;rd_value_volume_M€`, séparateur `;`, 1995–2022, euros constants 2020 |
 | `value` | `(c,s)` | `RDV (c,s).csv` | colonnes `year,country_code,nace_code,rd_value_M€`, séparateur `,`, 1995–2022, euros courants |
 | `volume` | `(c,s,t)` | `RDQ (c,s,t).csv` | format large : colonne `VAR` = `RDQ_<pays>_<secteur>_<technologie>_<groupe>`, une colonne par année `2000Y1` … `2021Y1` |
 | `value` | `(c,s,t)` | `RDV (c,s,t).csv` | idem avec `RDV_` |
 
-Ces fichiers sont construits par `code/Creation_RD_files.py` à partir des fichiers
-BERD de Zenodo (4 fichiers à la racine : valeur et volume, 55 ou 25 secteurs). Les
-volumes (`RDQ`) y sont déjà en prix constants 2010, avec la même base pour tous les
-pays : aucun recalage n'est nécessaire. Les valeurs (`RDV`) sont en euros courants et
-n'ont pas d'année de référence. Ils couvrent 2000–2023 : adapter `Y0` / `YN` du
-programme principal.
+Les volumes (`RDQ`) sont tous recalés sur 2020 (script
+`code/conversion_RD.py`). Les valeurs (`RDV`) sont en euros courants et n'ont
+pas d'année de référence.
 
 Pour les fichiers `(c,s,t)` :
 - le code de technologie est le 4ᵉ bloc de `VAR` ; plusieurs lignes (le « groupe »,
@@ -250,10 +236,6 @@ MAP_RD_FILES = {         # base -> fichier R&D -> nomenclature de travail (dans 
 }
 ```
 
-Le fichier `agg_EXIOBASE_3.8.22_to_rd.xlsx` porte la version d'EXIOBASE et
-`agg_CFC_3.8.2_to_rd.xlsx` celle de CFC : si un fichier est renommé, mettre à jour
-`AGG_FILES` en conséquence.
-
 ### 4.2 La règle à respecter
 
 Pour une base donnée, l'ensemble des **secteurs** cibles de
@@ -285,31 +267,6 @@ nomenclature :
    nomenclature de travail, indiquer le secteur commun correspondant.
 5. **Enregistrer la base** dans `AGG_FILES` et `MAP_RD_FILES` du programme
    principal si le nom du fichier a changé ou si c'est une nouvelle base.
-6. **Vérifier la cohérence** avec ce petit bout de code, à lancer depuis la racine
-   du projet (mêmes cibles côté base et côté R&D, et toutes présentes dans
-   `map_agg`) :
-
-```python
-import pandas as pd
-base_file = "mapping/agg_base_to_rd/agg_EXIOBASE_3.8.22_to_rd.xlsx"
-rd_file = "mapping/agg_rd_to_base/agg_rd_to_EXIOBASE.xlsx"
-map_agg_file = "mapping/final_aggregation/map_agg_EXIOBASE.xlsx"
-
-for sheet in ["Sector", "Region"]:
-    cibles_base = set(pd.read_excel(base_file, sheet_name=sheet)["Aggregation"].dropna().astype(str))
-    cibles_rd = set(pd.read_excel(rd_file, sheet_name=sheet, dtype=str)["aggregation"].dropna())
-    print(sheet, "| seulement côté base :", sorted(cibles_base - cibles_rd),
-          "| seulement côté R&D :", sorted(cibles_rd - cibles_base))
-
-map_agg = set(pd.read_excel(map_agg_file, sheet_name="Sector", dtype=str)["Sector"].dropna())
-cibles_rd = set(pd.read_excel(rd_file, sheet_name="Sector", dtype=str)["aggregation"].dropna())
-print("cibles absentes de map_agg :", sorted(cibles_rd - map_agg))
-```
-
-7. **Relancer** le programme principal (les fichiers de résultats sont
-   recalculés à la résolution des nouveaux mappings), puis le script d'agrégation.
-   Supprimer d'abord les anciens fichiers `_agg` : le script ne retouche pas un
-   `_agg` déjà existant.
 
 Les trois fichiers ne répondent pas à la même logique d'agrégation :
 
@@ -355,12 +312,6 @@ simple addition, sans biais :
 (e_i · Z_i) + (e_j · Z_j) = e · (Z_i + Z_j)     si e_i = e_j = e
 ```
 
-C'est différent de fusionner les `Z` **avant** de calculer `e` (ce qui avait
-produit l'écart observé initialement, ex. BE `C20_C21` = 86,75 au lieu de
-23,85 attendu) : dans ce cas les intensités `e_i` et `e_j` diffèrent et un
-terme croisé apparaît. Le script n'introduit donc pas ce biais : il ne fait
-qu'agréger un résultat déjà correct.
-
 ### Ce qu'il fait
 
 Pour la `BASE` de `project_settings` (liste `BASES` en tête du script pour en
@@ -380,16 +331,7 @@ suffixe `_agg` (ex. `rd_dir_CI_EXIOBASE_2015.csv` →
 un fichier déjà traité ne retouche pas son `_agg` existant, et les fichiers
 d'origine ne sont jamais modifiés.
 
-Un secteur présent dans un fichier de sortie mais absent de son
-`map_agg_{base}.xlsx` est conservé tel quel (identité) et signalé par un
-avertissement dans la console, plutôt que de faire échouer le script — l'état
-du mapping reste à la charge de l'utilisateur.
-
 ### Comment le lancer
-
-```bash
-python code/aggregate_to_common_mapping.py
-```
 
 À lancer après le programme principal, une fois que le dossier du run contient
 les fichiers à agréger pour la base voulue.
@@ -398,20 +340,11 @@ les fichiers à agréger pour la base voulue.
 
 | Étape | Programme | Produit |
 |---|---|---|
-| 0 (une fois) | `code/Creation_RD_files.py` | `RDV (c,s)_new.csv` et `RDQ (c,s)_new.csv` à partir des fichiers BERD (valeur courante et volume en prix 2010) : les renommer sans le suffixe `_new` pour les utiliser |
+| 0 (une fois) | `code/conversion_RD.py` | fichiers `RDQ` recalés sur 2020 (les `RDV` ne changent pas), écrits avec le suffixe `_rebased` : les renommer sans suffixe pour les utiliser |
 | 0 (une fois) | `code/conversion_STAN_euro.py` | fichiers STAN convertis en euros (taux 2020) et volumes recalés sur 2020, écrits avec le suffixe `_euro` ; `prépa_va_STAN` lit les fichiers `STAN_DATA_TFP_essential (euro courant).csv` et `DATA_STAN (euro courant).csv` du dossier `code/création_panel_estimation/DATA/` : y placer la version voulue |
 | 0 (une fois) | `code/création_panel_estimation/prépa_va_STAN.ipynb` | `Panels_intermediaires/panel_va_STAN.csv`, `panel_cit1.csv` et `intensite_propre.csv` (intensité de R&D = RDV / production STAN, commune à toutes les bases et technologies) |
 | 1 | `code/know_calc_loop.ipynb` | métriques par base, année et (le cas échéant) technologie (section 3) |
 | 2 | `code/aggregate_to_common_mapping.py` | fichiers `_agg` à la nomenclature commune (section 5) |
-| 3 | `code/création_panel_estimation/calc_blocs.ipynb` | `runs/<run>/panel_estimation/panel_estimation_{BASE}.csv` |
-| 4 | `code/création_panel_estimation/création_panel_F.ipynb` | `runs/<run>/panels/` : panel complet et panels « faible » / « forte » intensité |
-| 5 | `code/est_all_bases.ipynb` | `runs/<run>/tableaux/{BASE}/tab_{BASE}_{métrique}[_faible/_forte].xlsx` |
-| 6 | `code/graph_final_results.ipynb`, `code/graphs_output_general.ipynb` | graphiques dans `runs/<run>/graphs/` et `graphs_output/` |
-
-`<run>` est `RUN_DIR` : par exemple `SRDV (c,s)` ou `SRDV (c,s,t)/TJ11`. Les étapes
-3 à 6 travaillent sur la technologie `TECH` de `project_settings` ; pour en
-analyser une autre, changer `TECH` et relancer les étapes 3 à 6 (les étapes 1 et 2
-ont déjà traité toutes les technologies de `TECHS`).
 
 ### 6.1 Graphiques sur les matrices de sortie : `graphs_output_general.ipynb`
 
@@ -442,10 +375,3 @@ sources = [("EXIOBASE", "rd_dir_CI", 2010, run_id("value", "(c,s)")),
 
 - **Nomenclature :** `USE_AGG = False` (par défaut) lit les matrices à la résolution native de chaque base ; `USE_AGG = True` lit les fichiers `_agg` (nomenclature commune).
 - **Sorties :** les figures vont dans `runs/<run>/graphs_output/` pour un seul run, et dans `runs/comparison/graphs_output/` quand plusieurs runs sont comparés.
-
-## 7. Résultats
-
-Les résultats du programme principal sont dans `<OUTPUT_ROOT>/` (section 3.4).
-Ceux de la suite de la chaîne (panels, tableaux d'estimation, graphiques) sont
-dans `runs/<run>/`, un dossier par combinaison unité × dimension × technologie,
-si bien que les runs ne s'écrasent jamais entre eux.

@@ -1,4 +1,4 @@
-# ENTICE T3.4
+# ENTICE-T3.4
 
 Ce dépôt calcule le contenu en R&D (directe, incorporée, importée) porté par les
 flux d'échanges internationaux, à partir de plusieurs bases MRIO (EXIOBASE,

@@ -137,11 +137,7 @@ These two programs are not needed for the computation: they use the results of t
 
 ### 5.1 Common aggregation: `code/aggregate_to_common_mapping.py`
 
-Groups the matrices produced by the main program onto a sector nomenclature common to the 7 databases (34 sectors), with `mapping/final_aggregation/map_agg_{BASE}.xlsx`, so that the databases can be compared with each other. Each result is written next to the original file with the `_agg` suffix (for example `rd_dir_CI_EXIOBASE_2015_agg.csv`); nothing is overwritten. As the matrices are already weighted by R&D intensity, summing rows or columns creates no bias. Run it after the main program, with the same `BASE`, `RD_UNIT`, `DIMENSION` and `TECHS` set at the top of the script:
-
-```
-py -m pipenv run python code/aggregate_to_common_mapping.py
-```
+Groups the matrices produced by the main program onto a sector nomenclature common to the 7 databases (34 sectors), with `mapping/final_aggregation/map_agg_{BASE}.xlsx`, so that the databases can be compared with each other. Each result is written next to the original file with the `_agg` suffix (for example `rd_dir_CI_EXIOBASE_2015_agg.csv`); nothing is overwritten. As the matrices are already weighted by R&D intensity, summing rows or columns creates no bias. Run it after the main program, with the same `BASE`, `RD_UNIT`, `DIMENSION` and `TECHS` set at the top of the script.
 
 ### 5.2 Graphs: `code/graphs_output_general.ipynb`
 

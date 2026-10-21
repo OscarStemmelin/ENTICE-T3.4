@@ -29,6 +29,24 @@ if RD_UNIT not in ("value", "volume"):
 if DIMENSION not in ("(c,s)", "(c,s,t)"):
     raise ValueError(f"DIMENSION must be '(c,s)' or '(c,s,t)', got {DIMENSION!r}")
 
+# Years available for each BASE (R&D stock: 1995-2022); a year outside the range has no data and would stop the run
+BASE_YEARS = {
+    "EXIOBASE": (1995, 2022),
+    "FIGARO": (2010, 2022),
+    "OECD_ICIO": (2016, 2022),         # files data_OECD_ICIO/2016-2022_EXT
+    "CAPITAL": (1995, 2020),           # Kbar files of data_raw/all_kbar
+    "GTAP": (1995, 2022),              # each year uses the closest GTAP period (2004 ... 2023)
+    "FDI": (1995, 2022),               # static FDI shares: only limited by the R&D stock
+    "Patents_Citation": (2012, 2022),  # citation file 2012-2023, the R&D stock stops in 2022
+}
+
+if BASE not in BASE_YEARS:
+    raise ValueError(f"BASE must be one of {list(BASE_YEARS)}, got {BASE!r}")
+_y_min, _y_max = BASE_YEARS[BASE]
+_no_data = [y for y in YEARS if not _y_min <= y <= _y_max]
+if _no_data:
+    print(f"[Warning]: {BASE} is only available for {_y_min}-{_y_max}, no data for the years {_no_data}")
+
 TECH_LABELS = _tech_labels(TECHS) if DIMENSION == "(c,s,t)" else []
 if DIMENSION == "(c,s,t)":
     YEARS = [y for y in YEARS if 2000 <= y <= 2021]   # the (c,s,t) files cover 2000-2021 only
@@ -120,6 +138,20 @@ def aggregate_citation_matrix_file(path, mapping):
     return df.sort_index().sort_index(axis=1)
 
 
+def aggregate_vector_file(path, mapping):
+    # vector_{metric}_{base}_{year}.csv (OUTPUT_TYPE "vector" of the main program): one row per destination, last column = value.
+    # Keys (Region, Level, Item) for the mario-based bases, (Region, Sector) for Patents_Citation, Region only for FDI
+    # (no sector: copied as-is)
+    df = pd.read_csv(path, sep=";", dtype={"Region": str, "Level": str, "Item": str, "Sector": str})
+    keys, value = list(df.columns[:-1]), df.columns[-1]
+    sector = next((k for k in ("Item", "Sector") if k in keys), None)
+    if sector is None:
+        return df
+    warn_unmapped(df[sector].unique(), mapping, path)
+    df[sector] = apply_mapping(df[sector], mapping)
+    return df.groupby(keys, as_index=False)[value].sum().sort_values(keys)
+
+
 def aggregate_long_file(path, mapping):
     df = pd.read_csv(path, sep=";", dtype={"Region": str, "Sector": str})
     warn_unmapped(df["Sector"].unique(), mapping, path)
@@ -152,6 +184,11 @@ def run_base(base, out_dir):
                 if is_already_aggregated(f):
                     continue
                 aggregator(f, mapping).to_csv(out_path(f), sep=";")
+                done += 1
+            for f in glob.glob(os.path.join(year_dir, f"vector_{prefix}_{base}_*.csv")):
+                if is_already_aggregated(f):
+                    continue
+                aggregate_vector_file(f, mapping).to_csv(out_path(f), sep=";", index=False)
                 done += 1
 
     no_year_dir = os.path.join(base_dir, f"output_loop_{base}")

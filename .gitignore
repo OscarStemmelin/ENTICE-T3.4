@@ -4,13 +4,13 @@ BERD_RDQ_25S_wide_COUNTRY_NACE_2000Y1_2023Y1_Zenodo.csv.deflated2010
 BERD_RDQ_55S_wide_COUNTRY_NACE_2000Y1_2023Y1_Zenodo.csv.deflated2010
 BERD_RDV_25S_wide_COUNTRY_NACE_2000Y1_2023Y1_Zenodo.csv
 BERD_RDV_55S_wide_COUNTRY_NACE_2000Y1_2023Y1_Zenodo.csv
-RDQ_(c,s)_new.csv
-RDV_(c,s)_new.csv
+RDQ_c_s_new.csv
+RDV_c_s_new.csv
 data_raw/
-SRDQ_(c,s)/
-SRDQ_(c,s,t)/
-SRDV_(c,s)/
-SRDV_(c,s,t)/
+SRDQ_c_s/
+SRDQ_c_s_t/
+SRDV_c_s/
+SRDV_c_s_t/
 graphs_output_loop/
 
 # Python / IDE

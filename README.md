@@ -1,12 +1,12 @@
-# ENTICE-T3.4
+# ENTICE_know_calc
 
 This repository computes the R&D content (direct, embodied, imported) carried by international trade flows, from MRIO databases (EXIOBASE, FIGARO, OECD_ICIO, GTAP) and three additional diffusion channels (CAPITAL, FDI, patent citations). It can be run **without a technology dimension** (R&D by country × sector, written `(c,s)`) or **with one** (R&D by country × sector × technology, written `(c,s,t)`).
 
 - the main program: [`code/know_calc_loop.ipynb`](code/know_calc_loop.ipynb)
 - the settings: variables at the top of each program (section 2)
 - the mapping files: [`mapping/`](mapping)
-- the R&D files (project root): `RDQ_(c,s).csv`, `RDV_(c,s).csv`, `RDQ_(c,s,t).csv`, `RDV_(c,s,t).csv`
-- the results: `SRDV_(c,s)`, `SRDQ_(c,s)`, `SRDV_(c,s,t)`, `SRDQ_(c,s,t)`
+- the R&D files (project root): `RDQ_c_s.csv`, `RDV_c_s.csv`, `RDQ_c_s_t.csv`, `RDV_c_s_t.csv`
+- the results: `SRDV_c_s`, `SRDQ_c_s`, `SRDV_c_s_t`, `SRDQ_(c,s,t)`
 - two optional programs, described at the end (section 5): the common aggregation and the graphs
 
 ## 1. Installation
@@ -21,7 +21,7 @@ python_version = "3.12"
 **2. Open the computer's terminal** (Command Prompt on Windows) and go to the project folder:
 
 ```
-cd "C:\path\to\ENTICE T3.4"
+cd "C:\path\to\ENTICE_know_calc"
 ```
 
 **3. Install `pipenv`, then the virtual environment with the right package versions:**
@@ -47,6 +47,7 @@ There is no shared settings file: **the variables are defined at the top of each
 | `TECH` | graphs | the technology plotted (only one) |
 | `METRIC_WANTED` | graphs | `"dir"` or `"embod"` |
 | `METRICS_WANTED` | main program | metrics computed (`"ALL"` = all those of the database) |
+| `OUTPUT_TYPE` | main program | what is written: `"matrix"`, `"vector"` or both |
 | `VERSION_EXIO` | main program | EXIOBASE version downloaded |
 
 Details of the common variables:
@@ -56,12 +57,13 @@ Details of the common variables:
 - `RD_UNIT`: `"value"` (`RDV` files, current euros, stocks written `SRDV`) or `"volume"` (`RDQ` files, constant 2020 euros, stocks written `SRDQ`).
 - `DIMENSION`: `"(c,s)"` (without technology) or `"(c,s,t)"` (with technology).
 - `TECHS`: technologies computed in `(c,s,t)` mode, for example `["TJ11", "TJ07", "TJ01"]` (`"TG*"` = every code starting with TG). About three technologies are recommended: each one is a full computation pass.
+- `OUTPUT_TYPE`: `"matrix"` (origin × destination, as before), `"vector"` (R&D received by each destination `(Region, Sector)`, whatever its origin) or both, `("matrix", "vector")`. Only the chosen outputs are written.
 
 ## 3. The main program: `know_calc_loop.ipynb`
 
 ### 3.1 What it does and how to run it
 
-For each year of `YEARS`, it downloads (if needed) and parses the MRIO database, aggregates it with `mapping/agg_base_to_rd/agg_{BASE}_to_rd.xlsx`, computes exports, imports and production, builds the R&D stock (perpetual inventory, 15% depreciation) mapped with `mapping/agg_rd_to_base/agg_rd_to_{BASE}.xlsx`, then computes the metrics below and writes them as CSV. In `(c,s,t)` mode, the stock and the metrics are recomputed for each technology, while the database is parsed only once per year.
+For each year of `YEARS`, it downloads (if needed) and parses the MRIO database, aggregates it with `mapping/agg_base_to_rd/agg_{BASE}_to_rd.xlsx`, builds the R&D stock (perpetual inventory, 15% depreciation) mapped with `mapping/agg_rd_to_base/agg_rd_to_{BASE}.xlsx`, then computes the metrics below and writes them as CSV. In `(c,s,t)` mode, the stock and the metrics are recomputed for each technology, while the database is parsed only once per year.
 
 To run it:
 1. open `code/know_calc_loop.ipynb` and set the variables of the first cell (section 2);
@@ -85,11 +87,13 @@ GTAP loads very heavy files and may exceed memory (`MemoryError`): close the oth
 
 | `RD_UNIT` | `DIMENSION` | File | Content |
 |---|---|---|---|
-| `volume` | `(c,s)` | `RDQ_(c,s).csv` | `year;country_code;nace_code;rd_value_volume_M€`, `;` separator, 1995–2022, constant 2020 euros |
-| `value` | `(c,s)` | `RDV_(c,s).csv` | `year,country_code,nace_code,rd_value_M€`, `,` separator, 1995–2022, current euros |
-| `volume` / `value` | `(c,s,t)` | `RDQ_(c,s,t).csv` / `RDV_(c,s,t).csv` | wide format, `VAR` column = `RDQ_<country>_<sector>_<technology>_<group>`, one column per year 2000–2021 |
+| `volume` | `(c,s)` | `RDQ_c_s.csv` | `year;country_code;nace_code;rd_value_volume_M€`, `;` separator, 1995–2022, constant 2020 euros |
+| `value` | `(c,s)` | `RDV_c_s.csv` | `year,country_code,nace_code,rd_value_M€`, `,` separator, 1995–2022, current euros |
+| `volume` / `value` | `(c,s,t)` | `RDQ_c_s_t.csv` / `RDV_c_s_t.csv` | wide format, one row per `country_code`, `sector_code` (source code, e.g. `S10`), `nace_code` (same codes as the `(c,s)` files, e.g. `C10_C12`), `technology_code` (e.g. `TJ07`) and `group_code`, then one column per year 2000–2021 |
 
 The `(c,s,t)` files only cover manufacturing (and `J62_J63`): the other sectors have zero technological R&D. The volumes of a few countries (BR, IN, RU, RO, MX…) seem to be deflated differently there than in `(c,s)`: use with caution.
+
+The meaning of the sector, country and technology codes used in these files is given in [`RD_codes_definitions.xlsx`](RD_codes_definitions.xlsx), with one sheet per code type: `Sector` (NACE Rev. 2, grouped by section), `Country` and `Technology` (90 codes grouped as green, JTag, WIPO and other technologies).
 
 **MRIO databases and channels** (`data_raw/` folder):
 
@@ -105,9 +109,10 @@ The `(c,s,t)` files only cover manufacturing (and `J62_J63`): the other sectors 
 
 ### 3.3 Outputs
 
-Results go to `<OUTPUT_ROOT>/<BASE>/` (`SRDV_(c,s)`, `SRDQ_(c,s)`…). In `(c,s,t)` mode, a subfolder per technology is inserted: `SRDV_(c,s,t)/<technology>/<BASE>/`.
-- `output_loop_{BASE}_{year}/`: one CSV per metric (for example `rd_dir_CI_{BASE}_{year}.csv`), square `(Region, Level, Item)` matrix, `;` separator, at the sector resolution of the database.
-- `output_loop_{BASE}/`: files with all years as columns, `exports_`, `imports_intermediate_`, `imports_final_demand_` and `production_{BASE}.csv` (EXIOBASE, FIGARO, OECD_ICIO, GTAP, CAPITAL only).
+Results go to `<OUTPUT_ROOT>/<BASE>/` (`SRDV_c_s`, `SRDQ_c_s`…). In `(c,s,t)` mode, a subfolder per technology is inserted: `SRDV_c_s_t`.
+- `output_loop_{BASE}_{year}/`: one CSV per metric, `;` separator, at the sector resolution of the database:
+  - matrix (`OUTPUT_TYPE` contains `"matrix"`): `rd_dir_CI_{BASE}_{year}.csv`, square `(Region, Level, Item)` matrix, rows = origin of the R&D, columns = destination;
+  - vector (`OUTPUT_TYPE` contains `"vector"`): `vector_rd_dir_CI_{BASE}_{year}.csv`, one value per destination `(Region, Level, Item)` = sum of the matrix over the origins, i.e. the R&D received without knowing where it comes from. The common aggregation (section 5.1) handles both the matrix and the vector files; the graphs only read the matrices.
 
 ## 4. The mappings (`mapping/`)
 
@@ -137,7 +142,7 @@ These two programs are not needed for the computation: they use the results of t
 
 ### 5.1 Common aggregation: `code/aggregate_to_common_mapping.py`
 
-Groups the matrices produced by the main program onto a sector nomenclature common to the 7 databases (34 sectors), with `mapping/final_aggregation/map_agg_{BASE}.xlsx`, so that the databases can be compared with each other. Each result is written next to the original file with the `_agg` suffix (for example `rd_dir_CI_EXIOBASE_2015_agg.csv`); nothing is overwritten. As the matrices are already weighted by R&D intensity, summing rows or columns creates no bias. Run it after the main program, with the same `BASE`, `RD_UNIT`, `DIMENSION` and `TECHS` set at the top of the script:
+Groups the matrices (and the `vector_` files, if `OUTPUT_TYPE` includes `"vector"`) produced by the main program onto a sector nomenclature common to the 7 databases (34 sectors), with `mapping/final_aggregation/map_agg_{BASE}.xlsx`, so that the databases can be compared with each other. Each result is written next to the original file with the `_agg` suffix (for example `rd_dir_CI_EXIOBASE_2015_agg.csv` or `vector_rd_dir_CI_EXIOBASE_2015_agg.csv`); nothing is overwritten. As the matrices are already weighted by R&D intensity, summing rows or columns creates no bias. Run it after the main program, with the same `BASE`, `RD_UNIT`, `DIMENSION` and `TECHS` set at the top of the script:
 
 ```
 py -m pipenv run python code/aggregate_to_common_mapping.py

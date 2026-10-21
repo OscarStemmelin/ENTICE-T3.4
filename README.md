@@ -1,4 +1,4 @@
-# ENTICE T3.4
+# ENTICE-T3.4
 
 Ce dépôt calcule le contenu en R&D (directe, incorporée, importée) porté par les flux d'échanges internationaux, à partir de bases MRIO (EXIOBASE, FIGARO, OECD_ICIO, GTAP) et de trois canaux de diffusion additionnels (CAPITAL, FDI, citations de brevets). Il peut être lancé **sans dimension technologique** (R&D par pays × secteur, noté `(c,s)`) ou **avec** (R&D par pays × secteur × technologie, noté `(c,s,t)`).
 

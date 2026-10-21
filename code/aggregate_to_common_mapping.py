@@ -1,19 +1,49 @@
 import glob
 import os
 import pandas as pd
-import importlib
-import project_settings
-importlib.reload(project_settings)
-from project_settings import PATH_WRK, BASE, SRC_DIRS
+import re
 
-# folders written by know_calc_loop: "SRDV (c,s)" / "SRDQ (c,s)", or one folder per technology of TECHS in (c,s,t)
-# (RD_UNIT, DIMENSION and TECHS are set in project_settings.py)
+PATH_WRK = "C:/Users/oscar/Desktop/ENTICE T3.4/"
+
+BASE = "EXIOBASE" # EXIOBASE, FIGARO, OECD_ICIO, CAPITAL, GTAP, FDI, or Patents_Citation
+
+YEARS = [2020]
+#[1995,1996,1997,1998,1999,2000,2001,2002,2003,2004,2005,2006,2007,2008,2009,2010,2011,2012,2013,
+# 2014,2015,2016,2017,2018,2019,2020,2021,2022]
+
+RD_UNIT = "volume"        # "value" -> RDV files (current prices, SRDV) | "volume" -> RDQ files (2020 prices, SRDQ)
+
+DIMENSION = "(c,s)"      # "(c,s)" without technology | "(c,s,t)" with technology
+
+# Technologies computed by know_calc_loop when DIMENSION == "(c,s,t)": list of codes / patterns ("TG*" = every code starting
+# with TG), or dict {name: [codes]} to group codes. 3 codes are advised (each one is a full pass of the metrics).
+TECHS = ["TJ11", "TJ07", "TJ01"]
+
+def _tech_labels(techs):
+    keys = list(techs.keys()) if isinstance(techs, dict) else list(techs)
+    return [re.sub(r"[^A-Za-z0-9_+-]+", "x", str(k)) for k in keys]   # same rule as tech_specs() of know_calc_loop
+
+
+if RD_UNIT not in ("value", "volume"):
+    raise ValueError(f"RD_UNIT must be 'value' or 'volume', got {RD_UNIT!r}")
+if DIMENSION not in ("(c,s)", "(c,s,t)"):
+    raise ValueError(f"DIMENSION must be '(c,s)' or '(c,s,t)', got {DIMENSION!r}")
+
+TECH_LABELS = _tech_labels(TECHS) if DIMENSION == "(c,s,t)" else []
+if DIMENSION == "(c,s,t)":
+    YEARS = [y for y in YEARS if 2000 <= y <= 2021]   # the (c,s,t) files cover 2000-2021 only
+
+OUTPUT_ROOT = ("SRDV" if RD_UNIT == "value" else "SRDQ") + f"_{DIMENSION}"   # folder written by know_calc_loop
+SRC_DIRS = ([PATH_WRK + f"{OUTPUT_ROOT}/{t}/" for t in TECH_LABELS] if DIMENSION == "(c,s,t)" else [PATH_WRK + OUTPUT_ROOT + "/"])
+
+# folders written by know_calc_loop: "SRDV_(c,s)" / "SRDQ_(c,s)", or one folder per technology of TECHS in (c,s,t)
+# (RD_UNIT, DIMENSION and TECHS are set at the top of this script)
 OUT_DIRS = SRC_DIRS
 MAP_DIR = PATH_WRK + "mapping/final_aggregation"
 BASES = [BASE]
-# BASES = ["FIGARO", "EXIOBASE", "CFC", "GTAP", "FDI", "OECD_ICIO", "Patents_Citation"]
+# BASES = ["FIGARO", "EXIOBASE", "CAPITAL", "GTAP", "FDI", "OECD_ICIO", "Patents_Citation"]
 
-MATRIX_PREFIXES = ["rd_dir_CI", "rd_embod_CI", "rd_imp_CI", "rd_dir_CFC", "rd_embod_CFC",
+MATRIX_PREFIXES = ["rd_dir_CI", "rd_embod_CI", "rd_imp_CI", "rd_dir_CAPITAL", "rd_embod_CAPITAL",
                    "rd_dir_cit", "rd_dir_fdips"]
 
 # rd_dir_cit (Patents_Citation) is not a mario-based matrix: it has only 2
@@ -22,7 +52,7 @@ MATRIX_PREFIXES = ["rd_dir_CI", "rd_embod_CI", "rd_imp_CI", "rd_dir_CFC", "rd_em
 ASYMMETRIC_PREFIXES = {"rd_dir_cit"}
 
 # "long" files Region[,Sector] + year columns, separator ";"
-# -> a single file (all years as columns), in SRDQ (c,s)/{base}/output_loop_{base}/
+# -> a single file (all years as columns), in SRDQ_(c,s)/{base}/output_loop_{base}/
 LONG_SECTOR_FILES = ["production_{base}.csv", "exports_{base}.csv", "imports_intermediate_{base}.csv"]
 
 # "long" files with no Sector column (Region + year columns only) -> no sector
@@ -33,9 +63,9 @@ NO_SECTOR_FILES = ["imports_final_demand_{base}.csv"]
 def load_mapping(base):
     p = os.path.join(MAP_DIR, f"map_agg_{base}.xlsx")
     df = pd.read_excel(p, sheet_name="Sector", dtype=str)
-    # column "Sector" = the base's own aggregation target (source, e.g. "C20_C21")
-    # column "aggregation" = the common final sector (destination, e.g. "C20+C21")
-    return dict(zip(df["Sector"], df["aggregation"]))
+    # column "nace_code (aggregated)" = the base's own aggregation target (source, e.g. "C20_C21")
+    # column "nace_code (common)" = the common final sector (destination, e.g. "C20+C21")
+    return dict(zip(df["nace_code (aggregated)"], df["nace_code (common)"]))
 
 
 def warn_unmapped(items, mapping, source):

@@ -4,7 +4,6 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
-mariopy = "==1.1.1"
 pandas = "==3.0.2"
 numpy = "==2.1.1"
 scipy = "==1.18.1"
@@ -20,6 +19,7 @@ h5py = "==3.16.0"
 pint = "==0.25.3"
 xlsxwriter = "==3.2.9"
 ipykernel = "==7.3.0"
+mariopy = "==1.3.1"
 
 [dev-packages]
 

@@ -1,377 +1,154 @@
 # ENTICE T3.4
 
-Ce dépôt calcule le contenu en R&D (directe, incorporée, importée) porté par les
-flux d'échanges internationaux, à partir de plusieurs bases MRIO (EXIOBASE,
-FIGARO, OECD_ICIO, GTAP) et de trois canaux de diffusion additionnels (CFC,
-FDI, citations de brevets), puis construit les panels et les régressions qui en
-découlent. Il peut être lancé **sans dimension technologique** (R&D par
-pays × secteur, noté `(c,s)`) ou **avec** (R&D par pays × secteur × technologie,
-noté `(c,s,t)`).
-
-Ce README couvre surtout le programme principal et les mappings ; la chaîne
-complète est résumée à la section 6.
+Ce dépôt calcule le contenu en R&D (directe, incorporée, importée) porté par les flux d'échanges internationaux, à partir de bases MRIO (EXIOBASE, FIGARO, OECD_ICIO, GTAP) et de trois canaux de diffusion additionnels (CAPITAL, FDI, citations de brevets). Il peut être lancé **sans dimension technologique** (R&D par pays × secteur, noté `(c,s)`) ou **avec** (R&D par pays × secteur × technologie, noté `(c,s,t)`).
 
 - le programme principal : [`code/know_calc_loop.ipynb`](code/know_calc_loop.ipynb)
-- le script d'agrégation commune : [`code/aggregate_to_common_mapping.py`](code/aggregate_to_common_mapping.py)
-- les fichiers de mapping : [`mapping/`](mapping), rangés en trois sous-dossiers
-  ([`agg_base_to_rd/`](mapping/agg_base_to_rd), [`agg_rd_to_base/`](mapping/agg_rd_to_base),
-  [`final_aggregation/`](mapping/final_aggregation))
-- les fichiers de R&D (racine du projet) : `RDQ (c,s).csv`, `RDV (c,s).csv`,
-  `RDQ (c,s,t).csv`, `RDV (c,s,t).csv`
-- les résultats du programme principal (`SRDV (c,s)`, `SRDQ (c,s)`, `SRDV (c,s,t)`,
-  `SRDQ (c,s,t)`) et, plus loin dans la chaîne, le dossier `runs/`
+- les réglages : variables en tête de chaque programme (section 2)
+- les fichiers de mapping : [`mapping/`](mapping)
+- les fichiers de R&D (racine du projet) : `RDQ_(c,s).csv`, `RDV_(c,s).csv`, `RDQ_(c,s,t).csv`, `RDV_(c,s,t).csv`
+- les résultats : `SRDV_(c,s)`, `SRDQ_(c,s)`, `SRDV_(c,s,t)`, `SRDQ_(c,s,t)`
+- deux programmes facultatifs, décrits à la fin (section 5) : l'agrégation commune et les graphiques
 
 ## 1. Installation
 
-Dépendances (voir [`Pipfile`](Pipfile)) : `pandas`, `numpy`, `scipy`,
-`openpyxl`, `mariopy` (le package MRIO utilisé pour parser/agréger les
-bases), `harpy3` (lecture des fichiers `.har` de GTAP/FDI). Python 3.13.
+**1. Adapter la version de Python dans le `Pipfile`.** Vérifier la version installée sur l'ordinateur (`py --version`), puis, dans la section `[requires]` du fichier `Pipfile`, y mettre cette version et supprimer la ligne `python_full_version`. Python 3.12 ou 3.13 convient (le projet a été testé en 3.13). Exemple pour Python 3.12 :
 
-```bash
-pipenv install
+```
+[requires]
+python_version = "3.12"
 ```
 
-Les notebooks importent `project_settings`, qui se trouve dans `code/`. Ce
-dossier doit donc être trouvable par Python : soit le notebook est dans `code/`,
-soit `code/` est marqué « Sources Root » dans PyCharm, soit son chemin est
-ajouté au `sys.path` (par exemple avec un fichier `.pth` dans l'environnement
-virtuel). Après tout changement de ce type, redémarrer le noyau du notebook.
+**2. Ouvrir le terminal de l'ordinateur** (invite de commandes sous Windows) et aller dans le dossier du projet :
 
-## 2. Configuration : `code/project_settings.py`
+```
+cd "C:\chemin\vers\ENTICE T3.4"
+```
 
-Toutes les exécutions partent du fichier `project_settings` :
+**3. Installer `pipenv` puis l'environnement virtuel avec les bonnes versions de paquets :**
 
-- `PATH_WRK` : à modifier en premier sur toute nouvelle machine, c'est la racine
-  à partir de laquelle tous les autres chemins (`mapping/`, `data_raw/`, fichiers
-  de R&D, dossiers de résultats) sont construits. La cellule de configuration du
-  programme principal définit aussi un `PATH_WRK` : garder les deux identiques.
-- `BASE` : une valeur parmi `"EXIOBASE"`, `"FIGARO"`, `"OECD_ICIO"`, `"GTAP"`,
-  `"CFC"`, `"FDI"`, `"Patents_Citation"`. Une exécution ne traite qu'**une
-  seule base à la fois** ; pour en traiter plusieurs, changer `BASE` et relancer.
-- `YEARS` : liste des années à calculer (les bornes réellement disponibles
-  dépendent des données brutes, voir 3.3). En mode `(c,s,t)`, la liste est
-  automatiquement limitée à 2000–2021.
-- `RD_UNIT` : `"value"` (fichiers `RDV`, euros courants, stocks notés `SRDV`) ou
-  `"volume"` (fichiers `RDQ`, euros constants 2020, stocks notés `SRDQ`).
+```
+pip install pipenv
+py -m pipenv sync
+```
+
+Dans PyCharm, choisir ensuite l'interpréteur de cet environnement (son chemin s'obtient avec `py -m pipenv --venv`), puis redémarrer le noyau du notebook.
+
+## 2. Configuration
+
+Il n'y a pas de fichier de réglages commun : **les variables sont définies au début de chaque programme** (première cellule des notebooks, début du script `.py`). Quand on lance plusieurs programmes à la suite, il faut y mettre les **mêmes valeurs**, sinon les programmes facultatifs (section 5) ne retrouvent pas les résultats du programme principal.
+
+| Variable | Où | Rôle |
+|---|---|---|
+| `PATH_WRK` | les trois programmes | chemin du projet, à adapter en premier sur chaque ordinateur |
+| `BASE` | les trois programmes | base à traiter |
+| `YEARS` | les trois programmes | années à calculer |
+| `RD_UNIT`, `DIMENSION` | les trois programmes | unité et dimension de la R&D |
+| `TECHS` | programme principal, agrégation commune | technologies traitées en mode `(c,s,t)` |
+| `TECH` | graphiques | la technologie tracée (une seule) |
+| `METRIC_WANTED` | graphiques | `"dir"` ou `"embod"` |
+| `METRICS_WANTED` | programme principal | métriques calculées (`"ALL"` = toutes celles de la base) |
+| `VERSION_EXIO` | programme principal | version d'EXIOBASE téléchargée |
+
+Détail des variables communes :
+
+- `BASE` : `"EXIOBASE"`, `"FIGARO"`, `"OECD_ICIO"`, `"GTAP"`, `"CAPITAL"`, `"FDI"` ou `"Patents_Citation"`. Une exécution ne traite qu'une seule base : pour en traiter une autre, changer `BASE` et relancer.
+- `YEARS` : liste des années à calculer. En mode `(c,s,t)`, elle est limitée automatiquement à 2000–2021.
+- `RD_UNIT` : `"value"` (fichiers `RDV`, euros courants, stocks notés `SRDV`) ou `"volume"` (fichiers `RDQ`, euros constants 2020, stocks notés `SRDQ`).
 - `DIMENSION` : `"(c,s)"` (sans technologie) ou `"(c,s,t)"` (avec technologie).
-- `TECHS` : technologies calculées quand `DIMENSION = "(c,s,t)"` (ignoré sinon).
-  Une liste de codes ou de motifs (`["TJ11", "TJ07", "TJ01"]` ; `"TG*"` = tous les
-  codes qui commencent par TG), ou un dictionnaire `{nom: [codes]}` pour regrouper
-  plusieurs codes en une seule technologie. Environ 3 technologies sont conseillées :
-  chacune est une passe complète de calcul des métriques.
+- `TECHS` : technologies calculées en mode `(c,s,t)`, par exemple `["TJ11", "TJ07", "TJ01"]` (`"TG*"` = tous les codes qui commencent par TG). Trois technologies environ sont conseillées : chacune est une passe complète de calcul.
 
 ## 3. Le programme principal : `know_calc_loop.ipynb`
 
-### 3.1 Ce qu'il fait
+### 3.1 Ce qu'il fait et comment le lancer
 
-Pour chaque année de `YEARS` :
-1. télécharge (si besoin) et parse la base MRIO demandée avec `mario`, puis
-   l'agrège avec `mapping/agg_base_to_rd/agg_{BASE}_to_rd.xlsx` ;
-2. calcule les exports, importations (intermédiaires et de demande finale) et
-   la production par `(Region, Sector)` ;
-3. construit le stock de R&D par méthode d'inventaire permanent (dépréciation
-   de 15 %) à partir du fichier de R&D choisi par `RD_UNIT` et `DIMENSION`, mappé
-   sur la même nomenclature que l'étape 1 via
-   `mapping/agg_rd_to_base/agg_rd_to_{BASE}.xlsx` ;
-4. calcule les métriques de diffusion demandées (voir tableau ci-dessous) ;
-5. écrit tous les résultats en CSV dans `OUTPUT_ROOT`.
+Pour chaque année de `YEARS`, il télécharge (si besoin) et parse la base MRIO, l'agrège avec `mapping/agg_base_to_rd/agg_{BASE}_to_rd.xlsx`, calcule les exports, importations et la production, construit le stock de R&D (inventaire permanent, dépréciation de 15 %) mappé avec `mapping/agg_rd_to_base/agg_rd_to_{BASE}.xlsx`, puis calcule les métriques ci-dessous et les écrit en CSV. En mode `(c,s,t)`, le stock et les métriques sont refaits pour chaque technologie, alors que le parsing de la base n'est fait qu'une fois par année.
 
-En mode `(c,s,t)`, les étapes 3 à 5 sont refaites **une fois par technologie**
-de `TECHS`, alors que les étapes 1 et 2 (parsing, exports/imports/production,
-inverse de Leontief, matrice de capital CFC) ne sont faites qu'une fois par
-année et partagées entre les technologies.
+Pour le lancer :
+1. ouvrir `code/know_calc_loop.ipynb` et régler les variables de la première cellule (section 2) ;
+2. vérifier que les données d'entrée de la base choisie sont en place (3.2) ;
+3. exécuter les cellules dans l'ordre.
 
-Les métriques calculées dépendent de la base (`ALL_METRICS` dans `run()`) :
+GTAP charge des fichiers très lourds et peut dépasser la mémoire (`MemoryError`) : fermer les autres programmes, redémarrer le noyau, et ne traiter qu'une base à la fois.
 
 | Base | Métriques calculées | Canal |
 |---|---|---|
-| EXIOBASE, FIGARO, OECD_ICIO, GTAP | `rd_dir_CI`, `rd_embod_CI`, `rd_imp_CI` | flux d'échanges intermédiaires (Z) |
-| CFC | `rd_dir_CFC`, `rd_embod_CFC` | stock de capital fixe (Kbar) |
-| FDI | `rd_dir_fdips` | participations d'investissement direct étranger |
+| EXIOBASE, FIGARO, OECD_ICIO, GTAP | `rd_dir_CI`, `rd_embod_CI`, `rd_imp_CI` | flux d'échanges intermédiaires |
+| CAPITAL | `rd_dir_CAPITAL`, `rd_embod_CAPITAL` | stock de capital fixe (Kbar) |
+| FDI | `rd_dir_fdips` | investissements directs étrangers |
 | Patents_Citation | `rd_dir_cit` | citations de brevets |
 
-Sens de chaque métrique :
-- `rd_dir` : R&D directe (premier niveau, pas de propagation dans la chaîne
-  de production).
-- `rd_embod` : R&D totale incorporée, `rd_dir` propagée via
-  l'inverse de Leontief (tous les fournisseurs amont, domestiques et
-  étrangers).
-- `rd_imp` : comme `rd_embod`, restreint aux flux transfrontaliers (les
-  flux domestiques, même région, sont mis à zéro).
+`rd_dir` est la R&D directe (premier niveau, sans propagation dans la chaîne de production) ; `rd_embod` est la R&D totale incorporée (`rd_dir` propagée par l'inverse de Leontief) ; `rd_imp` est `rd_embod` restreinte aux flux transfrontaliers.
 
-### 3.2 Comment le lancer
-
-1. Ouvrir `code/project_settings.py` et régler : `PATH_WRK`, `BASE`, `YEARS`,
-   `RD_UNIT`, `DIMENSION` et, si `DIMENSION = "(c,s,t)"`, `TECHS` (et `TECH`
-   pour la suite de la chaîne).
-2. Vérifier que les données d'entrée de la base choisie sont en place (3.3) et
-   que ses fichiers de mapping existent (section 4).
-3. Ouvrir `code/know_calc_loop.ipynb` et exécuter les cellules dans l'ordre
-   (le notebook est un script linéaire découpé en cellules, pas un ensemble de
-   cellules indépendantes). `PATH_WRK`, `BASE`, `YEARS`, `RD_UNIT`, `DIMENSION`
-   et `TECHS` sont lus depuis `project_settings` par la première cellule : il ne
-   faut pas les redéfinir dans le notebook.
-4. La dernière cellule (`if __name__ == "__main__":`) lance `run(...)` sur la
-   `BASE` / les `YEARS` configurées. Un message récapitule le fichier de R&D lu et
-   les dossiers où seront écrits les résultats ; en mode `(c,s,t)`, les années hors
-   de 2000–2021 sont ignorées avec un avertissement.
-5. Pour une autre base, une autre unité, une autre dimension ou d'autres
-   technologies : modifier `project_settings.py` et relancer (redémarrer le noyau
-   si le notebook a déjà tourné, pour libérer la mémoire).
-
-Remarque : GTAP charge des fichiers très lourds (plusieurs Go) et peut
-dépasser la mémoire disponible (`MemoryError` pendant `mario.parse_gtap`). Fermer
-les autres programmes, redémarrer le noyau, et ne traiter qu'une base à la fois.
-
-### 3.3 Données d'entrée requises
+### 3.2 Données d'entrée
 
 **R&D** (racine du projet), choisie par `RD_UNIT` et `DIMENSION` :
 
-| `RD_UNIT` | `DIMENSION` | Fichier | Format |
+| `RD_UNIT` | `DIMENSION` | Fichier | Contenu |
 |---|---|---|---|
-| `volume` | `(c,s)` | `RDQ (c,s).csv` | colonnes `year;country_code;nace_code;rd_value_volume_M€`, séparateur `;`, 1995–2022, euros constants 2020 |
-| `value` | `(c,s)` | `RDV (c,s).csv` | colonnes `year,country_code,nace_code,rd_value_M€`, séparateur `,`, 1995–2022, euros courants |
-| `volume` | `(c,s,t)` | `RDQ (c,s,t).csv` | format large : colonne `VAR` = `RDQ_<pays>_<secteur>_<technologie>_<groupe>`, une colonne par année `2000Y1` … `2021Y1` |
-| `value` | `(c,s,t)` | `RDV (c,s,t).csv` | idem avec `RDV_` |
+| `volume` | `(c,s)` | `RDQ_(c,s).csv` | `year;country_code;nace_code;rd_value_volume_M€`, séparateur `;`, 1995–2022, euros constants 2020 |
+| `value` | `(c,s)` | `RDV_(c,s).csv` | `year,country_code,nace_code,rd_value_M€`, séparateur `,`, 1995–2022, euros courants |
+| `volume` / `value` | `(c,s,t)` | `RDQ_(c,s,t).csv` / `RDV_(c,s,t).csv` | format large, colonne `VAR` = `RDQ_<pays>_<secteur>_<technologie>_<groupe>`, une colonne par année 2000–2021 |
 
-Les volumes (`RDQ`) sont tous recalés sur 2020 (script
-`code/conversion_RD.py`). Les valeurs (`RDV`) sont en euros courants et n'ont
-pas d'année de référence.
+Les fichiers `(c,s,t)` ne couvrent que l'industrie manufacturière (et `J62_J63`) : les autres secteurs ont une R&D technologique nulle. Les volumes de quelques pays (BR, IN, RU, RO, MX…) y semblent déflatés autrement que dans `(c,s)` : à utiliser avec prudence.
 
-Pour les fichiers `(c,s,t)` :
-- le code de technologie est le 4ᵉ bloc de `VAR` ; plusieurs lignes (le « groupe »,
-  dernier bloc) peuvent exister pour un même pays × secteur × technologie, elles
-  sont additionnées ;
-- seuls les secteurs de l'industrie manufacturière (et `J62_J63`) sont couverts ;
-  les autres secteurs ont une R&D technologique nulle ;
-- le code de secteur du fichier (`S20`, `261`…) est converti en `nace_code` par le
-  dictionnaire `TECH_SECTOR_MAP` de la cellule de configuration du programme
-  principal : à compléter si de nouveaux codes de secteur apparaissent ;
-- le code `RW` (reste du monde) est écarté, faute de ligne correspondante dans les
-  mappings `agg_rd_to_{BASE}.xlsx` ;
-- le stock est calculé sur les années du fichier (2000–2021), un flux manquant
-  compte pour 0 ;
-- les volumes `(c,s,t)` de quelques pays (BR, IN, RU, RO, MX, BG, EE, HU, LV…)
-  semblent déflatés différemment de ceux de `(c,s)` : à utiliser avec prudence.
+**Bases MRIO et canaux** (dossier `data_raw/`) :
 
-**Bases MRIO et canaux** :
+| Base | Récupération | Emplacement attendu |
+|---|---|---|
+| EXIOBASE | automatique | `data_raw/data_EXIOBASE/` (temporaire) ; version fixée par `VERSION_EXIO` dans le notebook |
+| FIGARO | automatique | `data_raw/data_FIGARO/` (temporaire) |
+| OECD_ICIO | **manuelle** | `data_raw/data_OECD_ICIO/2016-2022_EXT/{année}.csv` |
+| GTAP | **manuelle** | `data_raw/V12APOW/V12APOW_MRIO_{période}/` (périodes 2004, 2007, 2011, 2014, 2017, 2019, 2023 ; chaque année prend la période la plus proche) |
+| CAPITAL | EXIOBASE (auto) + Kbar **manuel** | `data_raw/all_kbar/Kbar_exio_v3_8_2_{année}_cfc_pxi.mat` |
+| FDI | **manuelle** | `data_raw/data_FDI/fdi_158_65.har` |
+| Patents_Citation | **manuelle** | `data_raw/data_Patents_Citation/Fractional_Citations_..._prefiltered.csv` |
 
-| Base | Récupération | Emplacement attendu | Détail |
-|---|---|---|---|
-| EXIOBASE | automatique (`mario.download_exiobase3`) | `data_raw/data_EXIOBASE/` (temporaire, supprimé après chaque année) | version fixée par `VERSION_EXIO` dans le notebook |
-| FIGARO | automatique (`mario.parse_figaro`) | `data_raw/data_FIGARO/` (temporaire) | téléchargé et parsé en un seul appel |
-| OECD_ICIO | **manuelle** | `data_raw/data_OECD_ICIO/2016-2022_EXT/{année}.csv` | un CSV par année, 2016 à 2022 |
-| GTAP | **manuelle** | `data_raw/V12APOW/V12APOW_MRIO_{période}/` (CSV) | périodes disponibles : 2004, 2007, 2011, 2014, 2017, 2019, 2023 ; chaque année de `YEARS` est associée à la période la plus proche (voir `run()`) |
-| CFC | réutilise EXIOBASE (auto) + Kbar **manuel** | `data_raw/all_kbar/Kbar_exio_v3_8_2_{année}_cfc_pxi.mat` | un fichier `.mat` par année (matrice de capital fixe) |
-| FDI | statique, **manuelle** | `data_raw/data_FDI/fdi_158_65.har` | fichier `.har` (matrice FDIP source × hôte × secteur), lu avec `harpy` |
-| Patents_Citation | statique, **manuelle** | `data_raw/data_Patents_Citation/Fractional_Citations_..._prefiltered.csv` | un seul fichier, filtré par année dans le code |
+### 3.3 Sorties
 
-### 3.4 Sorties
-
-Les résultats vont dans `<OUTPUT_ROOT>/<BASE>/` (`SRDV (c,s)`, `SRDQ (c,s)`,
-`SRDV (c,s,t)` ou `SRDQ (c,s,t)`). En mode `(c,s,t)`, **un sous-dossier par
-technologie** s'intercale : `SRDV (c,s,t)/<technologie>/<BASE>/`, avec exactement
-la même organisation qu'en `(c,s)` :
-
-- `output_loop_{BASE}_{année}/` : un CSV par métrique calculée cette
-  année-là (ex. `rd_dir_CI_{BASE}_{année}.csv`). Format : matrice carrée
-  `(Region, Level, Item)` en lignes et en colonnes, séparateur `;`, à la
-  résolution sectorielle propre à la base (celle de
-  `mapping/agg_base_to_rd/agg_{BASE}_to_rd.xlsx`).
-- `output_loop_{BASE}/` (sans année) : fichiers globaux toutes années en
-  colonnes — `exports_{BASE}.csv`, `imports_intermediate_{BASE}.csv`,
-  `production_{BASE}.csv` (colonnes `Region, Sector, <année>, ...`) et
-  `imports_final_demand_{BASE}.csv` (colonnes `Region, <année>, ...`, pas de
-  détail sectoriel). Uniquement pour EXIOBASE, FIGARO, OECD_ICIO, GTAP, CFC
-  (FDI et Patents_Citation n'ont pas de Z/Y, donc pas d'exports/imports/
-  production). En mode `(c,s,t)`, ces fichiers sont recopiés dans le dossier de
-  chaque technologie.
+Les résultats vont dans `<OUTPUT_ROOT>/<BASE>/` (`SRDV_(c,s)`, `SRDQ_(c,s)`…). En mode `(c,s,t)`, un sous-dossier par technologie s'intercale : `SRDV_(c,s,t)/<technologie>/<BASE>/`.
+- `output_loop_{BASE}_{année}/` : un CSV par métrique (par exemple `rd_dir_CI_{BASE}_{année}.csv`), matrice carrée `(Region, Level, Item)`, séparateur `;`, à la résolution sectorielle de la base.
+- `output_loop_{BASE}/` : fichiers toutes années en colonnes, `exports_`, `imports_intermediate_`, `imports_final_demand_` et `production_{BASE}.csv` (EXIOBASE, FIGARO, OECD_ICIO, GTAP, CAPITAL seulement).
 
 ## 4. Les mappings (`mapping/`)
 
-### 4.1 Organisation
-
 ![Schéma des fichiers de mapping](mapping/schema_mapping.svg)
 
-*Lecture du schéma (fichier source : [`mapping/schema_mapping.svg`](mapping/schema_mapping.svg)) : la base MRIO (à gauche) et le fichier de R&D (à droite) sont chacun ramenés par un premier mapping à une même **agrégation commune**, la plus fine possible, au milieu. C'est à ce niveau que les deux côtés doivent avoir exactement les mêmes cibles (encadré rouge), et c'est ce niveau qui fixe la résolution des résultats du programme principal. En dessous, une **couche d'agrégation supplémentaire** est facultative : elle consiste à regrouper davantage avec un fichier de mapping en plus (`map_agg_{BASE}.xlsx`). Dans ce projet, elle sert à ramener les 7 bases à une même nomenclature de 34 secteurs pour pouvoir les comparer.*
+La base MRIO (à gauche) et le fichier de R&D (à droite) sont chacun ramenés par un premier mapping à une même **agrégation commune**, la plus fine possible (au milieu). C'est à ce niveau que les deux côtés doivent avoir exactement les mêmes cibles, et il fixe la résolution des résultats. Une **couche d'agrégation supplémentaire** est facultative (section 5.1).
 
-Chaque base a besoin de **deux** fichiers de mapping obligatoires, plus un troisième
-facultatif (la couche d'agrégation supplémentaire), rangés chacun dans son sous-dossier :
-
-| Fichier | Rôle | Feuilles / colonnes clés |
-|---|---|---|
-| `agg_base_to_rd/agg_{BASE}_to_rd.xlsx` | Passe la base de sa nomenclature native à sa nomenclature de travail. Consommé par `mario` (`db.aggregate(...)`). | format `mario` : feuilles `Sector` et `Region` (et `Factor of production`, `Satellite account`, `Consumption category`), 1ʳᵉ colonne = libellé natif, colonne `Aggregation` = cible |
-| `agg_rd_to_base/agg_rd_to_{BASE}.xlsx` | Passe les codes NACE du fichier de R&D (56 codes) à la **même** nomenclature de travail que le fichier ci-dessus, pour que le stock de R&D et la base MRIO s'alignent exactement. | feuille `Sector` : `nace_code` → `aggregation` ; feuille `Region` : `country_code` → `aggregation` |
-| `final_aggregation/map_agg_{BASE}.xlsx` | Passe la nomenclature de travail de la base (celle des deux fichiers ci-dessus) à la nomenclature **commune aux 7 bases** (34 secteurs). Utilisé uniquement par le script d'agrégation (section 5), pas par le programme principal. | feuille `Sector` : `Sector` (cible de la base) → `aggregation` (secteur final commun) |
-
-Autres fichiers :
-- `final_aggregation/dict_oecd_stan.xlsx` (feuille `Sector` : code OECD STAN →
-  secteur commun) et `final_aggregation/dict_region_stan.xlsx` (feuille `region` :
-  code pays OECD à 3 lettres → code région à 2 lettres) : rattachent les données
-  de valeur ajoutée STAN aux secteurs et régions communs (lus par
-  `prépa_va_STAN.ipynb`).
-- Spécifiques aux bases : `agg_base_to_rd/agg_GTAPpost2007_to_rd.xlsx` et
-  `agg_GTAPpre2007_to_rd.xlsx` (GTAP, années > 2007 et ≤ 2007),
-  `agg_base_to_rd/agg_FDI_to_rd.xlsx`, `agg_base_to_rd/agg_Patents_Citation_to_rd.xlsx`
-  (formats propres : `gtap_region` / `gtap_sector` → `aggregation` /
-  `aggregation_nace` pour FDI, `citation_code` / `citation_region` pour les
-  citations), `agg_base_to_rd/agg_Kbar_to_rd.xlsx` (agrégation du Kbar de CFC),
-  `Mapping_Ind_prod.xlsx` (produit → industrie, CFC), `map_cfc_iso.xlsx`
-  (ISO3 → ISO2, CFC). `map_rd_Kbar.xlsx` n'est référencé par aucun programme
-  actuel.
-
-Le programme principal sait quel fichier lire grâce à deux dictionnaires de la
-première cellule de `know_calc_loop.ipynb`, plus les chemins de `PATHS` :
-
-```python
-AGG_FILES = {            # base -> fichier base -> nomenclature de travail (dans mapping/)
-    "EXIOBASE": "agg_base_to_rd/agg_EXIOBASE_3.8.22_to_rd.xlsx",
-    "CFC": "agg_base_to_rd/agg_CFC_3.8.2_to_rd.xlsx",
-    "GTAP": "agg_base_to_rd/agg_GTAPpost2007_to_rd.xlsx",   # + agg_gtap / agg_gtap2 dans PATHS pour post / pre 2007
-    ...
-}
-MAP_RD_FILES = {         # base -> fichier R&D -> nomenclature de travail (dans mapping/)
-    "EXIOBASE": "agg_rd_to_base/agg_rd_to_EXIOBASE.xlsx",
-    ...
-}
-```
-
-### 4.2 La règle à respecter
-
-Pour une base donnée, l'ensemble des **secteurs** cibles de
-`agg_{BASE}_to_rd.xlsx` et l'ensemble des cibles de `agg_rd_to_{BASE}.xlsx` doivent
-être strictement identiques. Si une cible existe d'un côté mais pas de l'autre, la
-R&D correspondante est silencieusement mise à zéro (comportement de
-`build_rd_extensions_for_year`, sans avertissement dans le programme principal).
-Pour les **régions**, le fichier de R&D peut en avoir davantage que la base (la
-R&D des pays absents de la base est simplement perdue), mais toute région de la
-base absente du fichier de R&D n'aura aucune R&D. Le script d'agrégation signale,
-lui, les secteurs qu'il ne trouve pas dans `map_agg_{BASE}.xlsx`.
-
-### 4.3 Construire ou mettre à jour les mappings d'une base
-
-À faire pour une nouvelle base, ou quand un fichier source change de
-nomenclature :
-
-1. **Lister les nomenclatures sources** : régions et secteurs natifs de la base
-   (par exemple en parsant la base avec `mario` et en listant ses index `Sector` et `Region`) et les codes
-   NACE de la colonne `nace_code` du fichier de R&D (`RDV (c,s).csv`).
-2. **`agg_base_to_rd/agg_{BASE}_to_rd.xlsx`** : copier un fichier existant de
-   même type comme modèle (il garde la structure de feuilles attendue par `mario`),
-   puis remplir la colonne `Aggregation` des feuilles `Sector` et `Region`.
-3. **`agg_rd_to_base/agg_rd_to_{BASE}.xlsx`** : remplir `aggregation` pour chacun
-   des 56 `nace_code` (feuille `Sector`) et chacun des `country_code` du fichier
-   de R&D (feuille `Region`), avec **exactement les mêmes libellés de cible** qu'à
-   l'étape 2. Les pays qui ne font pas partie de la base vont dans `RW`.
-4. **`final_aggregation/map_agg_{BASE}.xlsx`** : pour chaque cible de la
-   nomenclature de travail, indiquer le secteur commun correspondant.
-5. **Enregistrer la base** dans `AGG_FILES` et `MAP_RD_FILES` du programme
-   principal si le nom du fichier a changé ou si c'est une nouvelle base.
-
-Les trois fichiers ne répondent pas à la même logique d'agrégation :
-
-- **`agg_{BASE}_to_rd.xlsx` et `agg_rd_to_{BASE}.xlsx`** : l'agrégation doit
-  être la **plus fine possible commune** aux deux nomenclatures sources — celle
-  de la base MRIO (régions/secteurs natifs) et celle du fichier de R&D
-  (56 codes NACE). On ne vise pas ici le niveau d'agrégation final à 34
-  secteurs : on descend seulement jusqu'au point où les deux nomenclatures
-  cessent d'avoir une correspondance 1-pour-1 (ex. la base distingue deux
-  secteurs que le NACE à 56 postes ne distingue pas, ou inversement), et on
-  agrège uniquement à partir de là. **Tous les secteurs doivent être représentés**
-  des deux côtés (règle 4.2). C'est cette étape qui fixe la résolution
-  sectorielle des sorties `output_loop_{BASE}_{année}/` (section 3.4).
-- **`map_agg_{BASE}.xlsx`** : l'agrégation est libre — c'est ici qu'on choisit
-  jusqu'où regrouper la nomenclature de travail de la base pour obtenir des
-  libellés comparables entre les 7 bases. Les cibles choisies doivent
-  correspondre aux secteurs communs de `dict_oecd_stan.xlsx` (colonne `Sector` : les
-  34 secteurs communs, plus `C` et `H` qui sont les agrégats STAN de l'industrie
-  manufacturière et des transports) et aux codes
-  région à 2 lettres de `dict_region_stan.xlsx` — c'est ce qui permet ensuite de
-  rattacher les résultats agrégés aux données de valeur ajoutée OECD STAN pour
-  le panel d'estimation.
-
-### 4.4 Les codes de secteur des fichiers `(c,s,t)`
-
-Le dictionnaire `TECH_SECTOR_MAP` (cellule de configuration du programme
-principal) relie les codes de secteur de `RDQ/RDV (c,s,t).csv` aux `nace_code` du
-fichier `(c,s)` (`S20` → `C20`, `261` → `C261`, `S62` → `J62_J63`…). C'est ensuite
-le mapping habituel `agg_rd_to_{BASE}.xlsx` qui prend le relais : il n'y a pas de
-fichier de mapping supplémentaire pour la technologie.
-
-## 5. Script d'agrégation commune : `code/aggregate_to_common_mapping.py`
-
-### Pourquoi un script séparé, après coup
-
-Le programme principal calcule déjà les métriques (`rd_dir_CI`, etc.) à la
-résolution sectorielle propre à chaque base — c'est-à-dire avec l'intensité de
-R&D (`e`) calculée à la résolution la plus fine possible pour cette base.
-Sommer ensuite des lignes/colonnes d'un résultat déjà pondéré par `e` est une
-simple addition, sans biais :
-
-```
-(e_i · Z_i) + (e_j · Z_j) = e · (Z_i + Z_j)     si e_i = e_j = e
-```
-
-### Ce qu'il fait
-
-Pour la `BASE` de `project_settings` (liste `BASES` en tête du script pour en
-traiter d'autres), il lit `mapping/final_aggregation/map_agg_{base}.xlsx` et
-applique ce mapping à tous les fichiers déjà produits par le programme principal.
-Il traite le dossier du run (`SRDV (c,s)`, `SRDQ (c,s)`…) ou, en mode `(c,s,t)`,
-le dossier de **chaque technologie** de `TECHS` :
-- fichiers matrices (`rd_dir_CI`, `rd_embod_CI`, `rd_imp_CI`, `rd_dir_CFC`,
-  `rd_embod_CFC`, `rd_dir_cit`, `rd_dir_fdips`) : somme les lignes et les colonnes
-  portant le même secteur commun ;
-- fichiers longs (`production`, `exports`, `imports_intermediate`) : somme par
-  `(Region, secteur commun)` ; `imports_final_demand` est simplement recopié.
-
-Chaque résultat est écrit à côté du fichier d'origine, même nom +
-suffixe `_agg` (ex. `rd_dir_CI_EXIOBASE_2015.csv` →
-`rd_dir_CI_EXIOBASE_2015_agg.csv`). Rien n'est écrasé : relancer le script sur
-un fichier déjà traité ne retouche pas son `_agg` existant, et les fichiers
-d'origine ne sont jamais modifiés.
-
-### Comment le lancer
-
-À lancer après le programme principal, une fois que le dossier du run contient
-les fichiers à agréger pour la base voulue.
-
-## 6. La chaîne complète
-
-| Étape | Programme | Produit |
-|---|---|---|
-| 0 (une fois) | `code/conversion_RD.py` | fichiers `RDQ` recalés sur 2020 (les `RDV` ne changent pas), écrits avec le suffixe `_rebased` : les renommer sans suffixe pour les utiliser |
-| 0 (une fois) | `code/conversion_STAN_euro.py` | fichiers STAN convertis en euros (taux 2020) et volumes recalés sur 2020, écrits avec le suffixe `_euro` ; `prépa_va_STAN` lit les fichiers `STAN_DATA_TFP_essential (euro courant).csv` et `DATA_STAN (euro courant).csv` du dossier `code/création_panel_estimation/DATA/` : y placer la version voulue |
-| 0 (une fois) | `code/création_panel_estimation/prépa_va_STAN.ipynb` | `Panels_intermediaires/panel_va_STAN.csv`, `panel_cit1.csv` et `intensite_propre.csv` (intensité de R&D = RDV / production STAN, commune à toutes les bases et technologies) |
-| 1 | `code/know_calc_loop.ipynb` | métriques par base, année et (le cas échéant) technologie (section 3) |
-| 2 | `code/aggregate_to_common_mapping.py` | fichiers `_agg` à la nomenclature commune (section 5) |
-
-### 6.1 Graphiques sur les matrices de sortie : `graphs_output_general.ipynb`
-
-Ce notebook trace des diagrammes de flux (Sankey) et des décompositions d'origine à partir des matrices écrites par le programme principal. Il sait travailler sur **toutes les matrices disponibles**, c'est-à-dire sur chaque *run* du programme principal :
-
-| Run | Contenu |
+| Fichier | Rôle |
 |---|---|
-| `SRDV (c,s)` | valeur (RDV), sans technologie |
-| `SRDQ (c,s)` | volume (RDQ), sans technologie |
-| `SRDV (c,s,t)/<TECH>` | valeur, avec la technologie `<TECH>` |
-| `SRDQ (c,s,t)/<TECH>` | volume, avec la technologie `<TECH>` |
+| `agg_base_to_rd/agg_{BASE}_to_rd.xlsx` | passe la base de sa nomenclature native à la nomenclature de travail (lu par `mario`) ; feuilles `Sector` (`sector_name (BASE)` → `nace_code (aggregated)`) et `Region` (`region_code (BASE)` → `country_code (aggregated)`) ; `mario` lit la 1ʳᵉ colonne comme source et la 2ᵉ comme cible, quel que soit leur titre |
+| `agg_rd_to_base/agg_rd_to_{BASE}.xlsx` | passe les 56 codes NACE et les pays du fichier de R&D à la **même** nomenclature de travail ; feuilles `Sector` (`nace_code (RD)` → `nace_code (aggregated)`) et `Region` (`country_code (RD)` → `country_code (aggregated)`) |
+| `final_aggregation/map_agg_{BASE}.xlsx` | facultatif : passe la nomenclature de travail aux 34 secteurs communs aux 7 bases (section 5.1) |
 
-- **Catalogue :** au démarrage, le notebook parcourt ces dossiers et affiche, pour chaque run et chaque base, les années disponibles. Les runs absents sont simplement ignorés.
-- **Run utilisé par défaut :** celui de `project_settings.py` (`RD_UNIT`, `DIMENSION`, `TECH`). Pour en tracer un autre sans toucher à `project_settings`, modifier `DEFAULT_RUN` en tête de notebook, avec la fonction `run_id(unit, dimension, tech)` :
+Le programme principal trouve ces fichiers grâce aux dictionnaires `AGG_FILES` et `MAP_RD_FILES` de la première cellule de `know_calc_loop.ipynb`. Les autres fichiers de `mapping/` (GTAP avant et après 2007, FDI, citations, Kbar de CAPITAL, `Mapping_Ind_prod.xlsx`, `map_capital_iso.xlsx`) sont propres à une base et lus par le même notebook.
+
+**La règle à respecter :** pour une base, les **secteurs** cibles de `agg_{BASE}_to_rd.xlsx` et de `agg_rd_to_{BASE}.xlsx` doivent être strictement identiques. Une cible présente d'un côté seulement fait tomber la R&D correspondante à zéro, sans avertissement. Pour les régions, le fichier de R&D peut en avoir plus que la base (leur R&D est perdue), mais une région de la base absente du fichier de R&D n'aura aucune R&D.
+
+**Créer ou mettre à jour les mappings d'une base :**
+1. lister les régions et secteurs natifs de la base (par exemple en parsant la base avec `mario`) et les codes NACE du fichier de R&D ;
+2. dans `agg_{BASE}_to_rd.xlsx` (copier un fichier existant comme modèle), remplir la colonne `nace_code (aggregated)` de la feuille `Sector` et `country_code (aggregated)` de la feuille `Region` : l'agrégation doit être la plus fine possible commune aux deux nomenclatures ;
+3. dans `agg_rd_to_{BASE}.xlsx`, remplir `nace_code (aggregated)` et `country_code (aggregated)` pour chaque code NACE et chaque pays du fichier de R&D, avec **exactement les mêmes libellés de cible** qu'à l'étape 2 (les pays absents de la base vont dans `RW`) ;
+4. déclarer le fichier dans `AGG_FILES` et `MAP_RD_FILES` du programme principal si son nom a changé ou si la base est nouvelle.
+
+## 5. Programmes facultatifs
+
+Ces deux programmes ne sont pas nécessaires au calcul : ils exploitent les résultats du programme principal.
+
+### 5.1 Agrégation commune : `code/aggregate_to_common_mapping.py`
+
+Regroupe les matrices produites par le programme principal sur une nomenclature de secteurs commune aux 7 bases (34 secteurs), avec `mapping/final_aggregation/map_agg_{BASE}.xlsx`, pour pouvoir comparer les bases entre elles. Chaque résultat est écrit à côté du fichier d'origine avec le suffixe `_agg` (par exemple `rd_dir_CI_EXIOBASE_2015_agg.csv`) ; rien n'est écrasé. Comme les matrices sont déjà pondérées par l'intensité de R&D, sommer des lignes ou des colonnes ne crée aucun biais. À lancer après le programme principal, avec les mêmes `BASE`, `RD_UNIT`, `DIMENSION` et `TECHS` réglés en tête du script :
+
+```
+py -m pipenv run python code/aggregate_to_common_mapping.py
+```
+
+### 5.2 Graphiques : `code/graphs_output_general.ipynb`
+
+Trace des diagrammes de flux (Sankey) et des décompositions d'origine à partir des matrices de sortie. Il parcourt tous les *runs* disponibles (valeur ou volume, avec ou sans technologie) et affiche leur catalogue au démarrage. Il utilise par défaut le run défini par `RD_UNIT`, `DIMENSION` et `TECH` en tête du notebook ; pour en tracer un autre, modifier ces variables ou `DEFAULT_RUN` :
 
 ```python
 DEFAULT_RUN = run_id("volume", "(c,s,t)", "TJ07")   # volume, technologie TJ07
 ```
 
-- **Un graphique pour un run précis :** `plot_flow_sankey_full(..., run=run_id("value", "(c,s,t)", "TJ11"))`.
-- **Comparer plusieurs runs sur un même graphique :** dans `plot_origin_decomposition_panels`, chaque source de la liste `sources` est un `(base, métrique, année)`, auquel on ajoute le run comme 4ᵉ élément :
-
-```python
-sources = [("EXIOBASE", "rd_dir_CI", 2010, run_id("value", "(c,s)")),
-           ("EXIOBASE", "rd_dir_CI", 2010, run_id("volume", "(c,s)")),
-           ("EXIOBASE", "rd_dir_CI", 2010, run_id("value", "(c,s,t)", "TJ11"))]
-```
-
-- **Nomenclature :** `USE_AGG = False` (par défaut) lit les matrices à la résolution native de chaque base ; `USE_AGG = True` lit les fichiers `_agg` (nomenclature commune).
-- **Sorties :** les figures vont dans `runs/<run>/graphs_output/` pour un seul run, et dans `runs/comparison/graphs_output/` quand plusieurs runs sont comparés.
+Pour comparer plusieurs runs sur un même graphique, ajouter le run comme 4ᵉ élément de chaque source de `plot_origin_decomposition_panels`, par exemple `("EXIOBASE", "rd_dir_CI", 2010, run_id("value", "(c,s)"))`. `USE_AGG = True` lit les fichiers `_agg` au lieu des matrices à la résolution de chaque base. Les figures sont écrites dans `runs/<run>/graphs_output_loop/` (ou `runs/comparison/graphs_output_loop/` pour une comparaison).

@@ -7,7 +7,11 @@ BERD_RDV_55S_wide_COUNTRY_NACE_2000Y1_2023Y1_Zenodo.csv
 RDQ_(c,s)_new.csv
 RDV_(c,s)_new.csv
 data_raw/
-runs/
+SRDQ_(c,s)/
+SRDQ_(c,s,t)/
+SRDV_(c,s)/
+SRDV_(c,s,t)/
+graphs_output_loop/
 
 # Python / IDE
 __pycache__/

@@ -1,4 +1,4 @@
-# ENTICE-T3.4
+# ENTICE_know_calc
 
 This repository computes the R&D content (direct, embodied, imported) carried by international trade flows, from MRIO databases (EXIOBASE, FIGARO, OECD_ICIO, GTAP) and three additional diffusion channels (CAPITAL, FDI, patent citations). It can be run **without a technology dimension** (R&D by country × sector, written `(c,s)`) or **with one** (R&D by country × sector × technology, written `(c,s,t)`).
 

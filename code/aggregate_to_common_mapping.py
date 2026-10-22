@@ -13,9 +13,9 @@ YEARS = [2020]
 
 RD_UNIT = "volume"        # "value" -> RDV files (current prices, SRDV) | "volume" -> RDQ files (2020 prices, SRDQ)
 
-DIMENSION = "(c,s)"      # "(c,s)" without technology | "(c,s,t)" with technology
+DIMENSION = "c_s"      # "c_s" without technology | "c_s_t" with technology
 
-# Technologies computed by know_calc_loop when DIMENSION == "(c,s,t)": list of codes / patterns ("TG*" = every code starting
+# Technologies computed by know_calc_loop when DIMENSION == "c_s_t": list of codes / patterns ("TG*" = every code starting
 # with TG), or dict {name: [codes]} to group codes. 3 codes are advised (each one is a full pass of the metrics).
 TECHS = ["TJ11", "TJ07", "TJ01"]
 
@@ -26,8 +26,8 @@ def _tech_labels(techs):
 
 if RD_UNIT not in ("value", "volume"):
     raise ValueError(f"RD_UNIT must be 'value' or 'volume', got {RD_UNIT!r}")
-if DIMENSION not in ("(c,s)", "(c,s,t)"):
-    raise ValueError(f"DIMENSION must be '(c,s)' or '(c,s,t)', got {DIMENSION!r}")
+if DIMENSION not in ("c_s", "c_s_t"):
+    raise ValueError(f"DIMENSION must be 'c_s' or 'c_s_t', got {DIMENSION!r}")
 
 # Years available for each BASE (R&D stock: 1995-2022); a year outside the range has no data and would stop the run
 BASE_YEARS = {
@@ -47,14 +47,14 @@ _no_data = [y for y in YEARS if not _y_min <= y <= _y_max]
 if _no_data:
     print(f"[Warning]: {BASE} is only available for {_y_min}-{_y_max}, no data for the years {_no_data}")
 
-TECH_LABELS = _tech_labels(TECHS) if DIMENSION == "(c,s,t)" else []
-if DIMENSION == "(c,s,t)":
-    YEARS = [y for y in YEARS if 2000 <= y <= 2021]   # the (c,s,t) files cover 2000-2021 only
+TECH_LABELS = _tech_labels(TECHS) if DIMENSION == "c_s_t" else []
+if DIMENSION == "c_s_t":
+    YEARS = [y for y in YEARS if 2000 <= y <= 2021]   # the c_s_t files cover 2000-2021 only
 
 OUTPUT_ROOT = ("SRDV" if RD_UNIT == "value" else "SRDQ") + f"_{DIMENSION}"   # folder written by know_calc_loop
-SRC_DIRS = ([PATH_WRK + f"{OUTPUT_ROOT}/{t}/" for t in TECH_LABELS] if DIMENSION == "(c,s,t)" else [PATH_WRK + OUTPUT_ROOT + "/"])
+SRC_DIRS = ([PATH_WRK + f"{OUTPUT_ROOT}/{t}/" for t in TECH_LABELS] if DIMENSION == "c_s_t" else [PATH_WRK + OUTPUT_ROOT + "/"])
 
-# folders written by know_calc_loop: "SRDV_(c,s)" / "SRDQ_(c,s)", or one folder per technology of TECHS in (c,s,t)
+# folders written by know_calc_loop: "SRDV_c_s" / "SRDQ_c_s", or one folder per technology of TECHS in c_s_t
 # (RD_UNIT, DIMENSION and TECHS are set at the top of this script)
 OUT_DIRS = SRC_DIRS
 MAP_DIR = PATH_WRK + "mapping/final_aggregation"
@@ -70,7 +70,7 @@ MATRIX_PREFIXES = ["rd_dir_CI", "rd_embod_CI", "rd_imp_CI", "rd_dir_CAPITAL", "r
 ASYMMETRIC_PREFIXES = {"rd_dir_cit"}
 
 # "long" files Region[,Sector] + year columns, separator ";"
-# -> a single file (all years as columns), in SRDQ_(c,s)/{base}/output_loop_{base}/
+# -> a single file (all years as columns), in SRDQ_c_s/{base}/output_loop_{base}/
 LONG_SECTOR_FILES = ["production_{base}.csv", "exports_{base}.csv", "imports_intermediate_{base}.csv"]
 
 # "long" files with no Sector column (Region + year columns only) -> no sector
